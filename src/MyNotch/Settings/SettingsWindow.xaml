@@ -1,0 +1,1874 @@
+<Window
+    x:Class="MyNotch.Settings.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Custom title bar over the Mica backdrop.  -->
+        <Grid x:Name="TitleBar" Padding="16,0,140,0">
+            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="12">
+                <Border
+                    Width="22"
+                    Height="14"
+                    VerticalAlignment="Center"
+                    Background="Black"
+                    BorderBrush="#40FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="0,0,7,7" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="Paramètres de MyNotch" />
+            </StackPanel>
+        </Grid>
+
+        <!--  The settings by section, chosen in the pane on the left; one section shown at a time (see OnSectionChanged).  -->
+        <NavigationView
+            x:Name="Sections"
+            Grid.Row="1"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="False"
+            IsSettingsVisible="False"
+            OpenPaneLength="220"
+            PaneDisplayMode="Left"
+            SelectionChanged="OnSectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Général" Tag="General">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Poignée" Tag="Handle">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE76F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Recherche" Tag="Search">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE721;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Paroles" Tag="Lyrics">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8D6;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Presse-papier" Tag="Clipboard">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE77F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Drop Zone" Tag="DropZone">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE898;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Pomodoro" Tag="Pomodoro">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE916;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Assistant" Tag="Assistant">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE99A;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <ScrollViewer x:Name="SectionScroller">
+                <Grid MaxWidth="640" Padding="28,16,28,28">
+                <!--  Général.  -->
+                <StackPanel
+                    x:Name="GeneralSection"
+                    Spacing="4">
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="Général" />
+                    <!--  The notch's language (read at startup: shows at the next one).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xF2B7;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Langue" />
+                                <TextBlock
+                                    x:Name="LanguageHint"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Celle de Windows, ou une autre : la notch la prend au prochain lancement."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="2"
+                                MinWidth="200"
+                                VerticalAlignment="Center"
+                                SelectedIndex="{x:Bind LanguageIndex, Mode=TwoWay}">
+                                <x:String>Celle de Windows</x:String>
+                                <x:String>Français</x:String>
+                                <x:String>English</x:String>
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <!--  Start with Windows (the user's Run key: read from Windows, not kept here).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE7E8;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Lancer avec Windows" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="À l'ouverture de votre session, la notch est là, sans rien d'autre à l'écran."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="StartupToggle"
+                                Grid.Column="2"
+                                MinWidth="0"
+                                OffContent=""
+                                OnContent=""
+                                Toggled="OnStartupToggled" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Minimized: only the handle, whatever goes on (the notch's right-click menu too).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE921;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Mode minimisé" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Fermée, la notch n'est que sa poignée, même avec de la musique, un minuteur ou la mascotte. La survoler l'ouvre ; les annonces et les cartes passent quand même. Aussi dans son clic droit."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.Minimized, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Clicked in, the notch stays open until a click outside.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE7C9;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Rester ouverte après un clic" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Ouverte au survol, la notch se referme quand la souris s'en va. Après un clic dedans, elle reste ouverte jusqu'à un clic ailleurs."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.StayOpenAfterClick, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Out of sight when nothing is going on.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16" RowSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE7B3;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Se cacher au repos" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Plus de son depuis ce délai (morceau en pause, rien en cours) : la notch fermée laisse le lecteur et revient à son état neutre, la mascotte dans son nid (ou la poignée sans mascotte). La survoler l'ouvre ; la musique qui reprend et les annonces font revenir la pilule. Désactivé : la pilule et le lecteur restent."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.HideWhenIdle, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                            <Grid
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="2"
+                                ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="200" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind FormatIdle(Settings.IdleSeconds), Mode=OneWay}" />
+                                <Slider
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    IsEnabled="{x:Bind Settings.HideWhenIdle, Mode=OneWay}"
+                                    Maximum="{x:Bind MaxIdleSeconds}"
+                                    Minimum="{x:Bind MinIdleSeconds}"
+                                    StepFrequency="{x:Bind IdleSecondsStep}"
+                                    IsThumbToolTipEnabled="False"
+                                    Value="{x:Bind Settings.IdleSeconds, Mode=TwoWay}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!--  The mascot, where the artwork goes when nothing plays.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE76E;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Mascotte" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Elle vit dans la notch : elle danse sur la musique, réagit à ce qui arrive, suit le curseur des yeux quand la notch est ouverte et dort dans un petit nid au repos."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <!--  Its colour: a round swatch per tone (see MascotPalette), the one worn ringed.  -->
+                            <StackPanel
+                                x:Name="MascotColors"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="2"
+                                Margin="0,12,0,0"
+                                Orientation="Horizontal"
+                                Spacing="6" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Hide while an app is full screen.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE740;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Masquer en plein écran" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="La notch se retire quand un jeu, une vidéo ou une présentation occupe tout l'écran."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.HideInFullscreen, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+                    <!--  The first launch's welcome, and the tour of the notch, again.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE7BE;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Présentation" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Les étapes du premier lancement, ou la visite de la notch."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <Button Click="OnWelcomeClick" Content="Accueil" />
+                                <Button Click="OnTourClick" Content="Visite de la notch" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!--  Poignée.  -->
+                <StackPanel
+                    x:Name="HandleSection"
+                    Spacing="4"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="Poignée" />
+                    <!--  Live preview, at real size: the handle, and the spot that opens the notch (blue, dashed).  -->
+                    <Border
+                        Height="96"
+                        Margin="0,0,0,4"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Offset="0" Color="#FF16263A" />
+                                <GradientStop Offset="1" Color="#FF233B57" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Grid>
+                            <Rectangle
+                                Width="{x:Bind ZoneWidth(Settings.HandleWidth, Settings.HandleReach), Mode=OneWay}"
+                                Height="{x:Bind ZoneHeight(Settings.HandleReach), Mode=OneWay}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Fill="#2660A5FA"
+                                RadiusX="3"
+                                RadiusY="3"
+                                Stroke="#CC60A5FA"
+                                StrokeDashArray="3,2"
+                                StrokeThickness="1" />
+                            <Border
+                                Width="{x:Bind Settings.HandleWidth, Mode=OneWay}"
+                                Height="9"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Background="Black"
+                                CornerRadius="0,0,4.5,4.5">
+                                <Rectangle
+                                    Width="{x:Bind GrabberWidth(Settings.HandleWidth), Mode=OneWay}"
+                                    Height="4"
+                                    Fill="#8CFFFFFF"
+                                    RadiusX="2"
+                                    RadiusY="2" />
+                            </Border>
+                            <TextBlock
+                                Margin="0,0,0,12"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Foreground="#CCFFFFFF"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="Aperçu : la poignée, et en bleu la zone qui ouvre la notch" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Handle width.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE9A6;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Largeur de la poignée" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind FormatSize(Settings.HandleWidth), Mode=OneWay}" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Maximum="{x:Bind MaxHandleWidth}"
+                                Minimum="{x:Bind MinHandleWidth}"
+                                StepFrequency="2"
+                                Value="{x:Bind Settings.HandleWidth, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Detection zone around the handle.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE7C9;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Zone de détection" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind FormatReach(Settings.HandleReach), Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Maximum="{x:Bind MaxHandleReach}"
+                                Minimum="{x:Bind MinHandleReach}"
+                                StepFrequency="1"
+                                Value="{x:Bind Settings.HandleReach, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Back to the handle's defaults (only once something was changed).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE777;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Valeurs par défaut" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind DefaultHandleText}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button
+                                Grid.Column="2"
+                                MinWidth="110"
+                                VerticalAlignment="Center"
+                                Click="OnResetHandleClick"
+                                Content="Rétablir"
+                                IsEnabled="{x:Bind IsHandleChanged(Settings.HandleWidth, Settings.HandleReach), Mode=OneWay}" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!--  Recherche.  -->
+                <StackPanel
+                    x:Name="SearchSection"
+                    Spacing="4"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="Recherche" />
+                    <!--  The shortcut, and who finds the files (credit where it is due).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE721;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
+                                <TextBlock Text="Ouvrir la recherche" />
+                                <StackPanel x:Name="SearchKeys" Orientation="Horizontal" Spacing="4" />
+                                <TextBlock
+                                    x:Name="SearchShortcutHint"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Partout : la notch devient une barre de recherche, les résultats tombent dessous."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <Button
+                                    x:Name="ResetSearchShortcutButton"
+                                    Click="OnResetSearchShortcutClick"
+                                    ToolTipService.ToolTip="Rétablir Ctrl + Q">
+                                    <FontIcon FontSize="14" Glyph="&#xE777;" />
+                                </Button>
+                                <Button
+                                    x:Name="RecordSearchShortcutButton"
+                                    MinWidth="110"
+                                    Click="OnRecordSearchShortcutClick"
+                                    Content="Modifier" />
+                                <ToggleSwitch
+                                    MinWidth="0"
+                                    IsOn="{x:Bind Settings.SearchShortcutOn, Mode=TwoWay}"
+                                    OffContent=""
+                                    OnContent="" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!--  Which screen the search opens on (the notch itself lives on the primary one).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE7F4;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Écran de la recherche" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Sur un autre écran que le principal, une notch de recherche à part tombe du haut de cet écran ; la notch, elle, ne bouge pas."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="2"
+                                MinWidth="200"
+                                VerticalAlignment="Center"
+                                SelectedIndex="{x:Bind SearchScreenIndex, Mode=TwoWay}">
+                                <x:String>Celui du curseur</x:String>
+                                <x:String>Celui de la fenêtre active</x:String>
+                                <x:String>L'écran principal</x:String>
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <!--  The last search, there again.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE81C;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Garder la dernière recherche" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Fermée sans rien ouvrir, elle revient, sélectionnée, avec ses résultats : taper la remplace. Après une ouverture, ou sinon, la barre s'ouvre vide."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.SearchKeepQuery, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                FontSize="18"
+                                Foreground="#FFFFC857"
+                                Glyph="&#xE945;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Boosté par Everything" />
+                                <TextBlock
+                                    x:Name="EverythingStatusText"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <Button
+                                    x:Name="FullSpeedButton"
+                                    Click="OnFullSpeedClick"
+                                    Content="Pleine vitesse"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    ToolTipService.ToolTip="Une autorisation de Windows, une seule fois : Everything lit alors les disques entiers, instantanément." />
+                                <HyperlinkButton Content="voidtools.com" NavigateUri="https://www.voidtools.com" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!--  Where to look.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16" RowSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE71D;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Où chercher" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Ce que la recherche propose, mêlé dans une seule liste."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Grid
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <CheckBox Content="Applications" IsChecked="{x:Bind Settings.SearchApps, Mode=TwoWay}" />
+                                    <CheckBox Content="Fichiers et dossiers" IsChecked="{x:Bind Settings.SearchFiles, Mode=TwoWay}" />
+                                    <CheckBox Content="Projets VS Code" IsChecked="{x:Bind Settings.SearchProjects, Mode=TwoWay}" />
+                                    <CheckBox Content="Paramètres Windows" IsChecked="{x:Bind Settings.SearchSettings, Mode=TwoWay}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <CheckBox Content="Commandes (verrouiller, veille…)" IsChecked="{x:Bind Settings.SearchCommands, Mode=TwoWay}" />
+                                    <CheckBox Content="Calculatrice" IsChecked="{x:Bind Settings.SearchCalculator, Mode=TwoWay}" />
+                                    <CheckBox Content="Recherche sur le web" IsChecked="{x:Bind Settings.SearchWeb, Mode=TwoWay}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!--  How many results.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE8FD;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Nombre de résultats" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind FormatResults(Settings.SearchMaxResults), Mode=OneWay}" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Maximum="{x:Bind MaxSearchResults}"
+                                Minimum="{x:Bind MinSearchResults}"
+                                StepFrequency="1"
+                                TickFrequency="1"
+                                TickPlacement="Outside"
+                                Value="{x:Bind Settings.SearchMaxResults, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Folders left out.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16" RowSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE8F8;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Dossiers ignorés" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Un par ligne. « \node_modules\ » : où qu'il soit ; « C:\Windows\ » : celui-là."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Click="OnResetExclusionsClick"
+                                Content="Rétablir" />
+                            <TextBox
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="2"
+                                Height="132"
+                                AcceptsReturn="True"
+                                FontFamily="Cascadia Mono, Consolas"
+                                FontSize="12"
+                                IsSpellCheckEnabled="False"
+                                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                Text="{x:Bind Settings.SearchExclusions, Mode=TwoWay}"
+                                TextWrapping="NoWrap" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!--  Paroles.  -->
+                <StackPanel
+                    x:Name="LyricsSection"
+                    Spacing="4"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="Paroles" />
+                    <!--  Live preview of the sung line: on the closed notch, or on the taskbar (as chosen below).  -->
+                    <Border
+                        Height="112"
+                        Margin="0,0,0,4"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Offset="0" Color="#FF2B3A67" />
+                                <GradientStop Offset="0.55" Color="#FF5B3E7A" />
+                                <GradientStop Offset="1" Color="#FFB0567A" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Grid>
+                            <Border
+                                Width="380"
+                                Height="36"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Background="Black"
+                                CornerRadius="0,0,19,19"
+                                Visibility="{x:Bind InNotch(Settings.LyricsPlace), Mode=OneWay}">
+                                <Grid Padding="6,0,12,0" ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border
+                                        Width="24"
+                                        Height="24"
+                                        CornerRadius="6,6,6,13">
+                                        <Border.Background>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                <GradientStop Offset="0" Color="#FFF2A65A" />
+                                                <GradientStop Offset="1" Color="#FFD9485F" />
+                                            </LinearGradientBrush>
+                                        </Border.Background>
+                                    </Border>
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        FontSize="{x:Bind Settings.CompactLyricsFontSize, Mode=OneWay}"
+                                        Style="{StaticResource NotchLyricTextStyle}"
+                                        Text="I want your love and I want your revenge"
+                                        TextAlignment="Center"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <StackPanel
+                                        Grid.Column="2"
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="2">
+                                        <Rectangle Width="3" Height="7" Fill="#FFF2A65A" RadiusX="1.5" RadiusY="1.5" />
+                                        <Rectangle Width="3" Height="13" Fill="#FFF2A65A" RadiusX="1.5" RadiusY="1.5" />
+                                        <Rectangle Width="3" Height="9" Fill="#FFF2A65A" RadiusX="1.5" RadiusY="1.5" />
+                                        <Rectangle Width="3" Height="15" Fill="#FFF2A65A" RadiusX="1.5" RadiusY="1.5" />
+                                        <Rectangle Width="3" Height="8" Fill="#FFF2A65A" RadiusX="1.5" RadiusY="1.5" />
+                                        <Rectangle Width="3" Height="11" Fill="#FFF2A65A" RadiusX="1.5" RadiusY="1.5" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <TextBlock
+                                Margin="0,0,0,12"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Foreground="#CCFFFFFF"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="Aperçu de la notch fermée"
+                                Visibility="{x:Bind InNotch(Settings.LyricsPlace), Mode=OneWay}" />
+
+                            <!--  On the taskbar: the lines flush right against the icons, the artwork beside them (the app's icon on it).  -->
+                            <TextBlock
+                                Margin="0,14,0,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Foreground="#CCFFFFFF"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="Aperçu de la barre des tâches"
+                                Visibility="{x:Bind OnTaskbar(Settings.LyricsPlace), Mode=OneWay}" />
+                            <Border
+                                Height="44"
+                                VerticalAlignment="Bottom"
+                                Background="#F21E1E21"
+                                CornerRadius="0,0,7,7"
+                                Visibility="{x:Bind OnTaskbar(Settings.LyricsPlace), Mode=OneWay}">
+                                <Grid Padding="14,0" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="7">
+                                        <Border Width="20" Height="20" Background="#FF4C9AFF" CornerRadius="5" />
+                                        <Border Width="20" Height="20" Background="#FF2FBF71" CornerRadius="5" />
+                                        <Border Width="20" Height="20" Background="#FFF5A524" CornerRadius="5" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock
+                                            HorizontalAlignment="Right"
+                                            FontSize="{x:Bind Settings.CompactLyricsFontSize, Mode=OneWay}"
+                                            Style="{StaticResource NotchLyricTextStyle}"
+                                            TextTrimming="CharacterEllipsis">
+                                            <Run Text="I want your " /><Run Foreground="#80FFFFFF" Text="love and I want your revenge" />
+                                        </TextBlock>
+                                        <TextBlock
+                                            HorizontalAlignment="Right"
+                                            FontSize="10.5"
+                                            Foreground="#B8FFFFFF"
+                                            Style="{StaticResource NotchLyricTextStyle}"
+                                            Text="You and me could write a bad romance"
+                                            TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <Grid
+                                        Grid.Column="2"
+                                        Width="30"
+                                        Height="30"
+                                        VerticalAlignment="Center">
+                                        <Border CornerRadius="5">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                    <GradientStop Offset="0" Color="#FFE0559B" />
+                                                    <GradientStop Offset="1" Color="#FF5B3FC4" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                        <Ellipse
+                                            Width="13"
+                                            Height="13"
+                                            Margin="-4,0,0,-3"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Bottom"
+                                            Fill="#FF1ED760" />
+                                    </Grid>
+                                    <StackPanel
+                                        Grid.Column="3"
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="9">
+                                        <FontIcon FontSize="11" Foreground="#D9FFFFFF" Glyph="&#xE70E;" />
+                                        <FontIcon FontSize="12" Foreground="#D9FFFFFF" Glyph="&#xE701;" />
+                                        <FontIcon FontSize="12" Foreground="#D9FFFFFF" Glyph="&#xE995;" />
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            FontSize="11"
+                                            Foreground="#D9FFFFFF"
+                                            Text="15:09" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!--  Show lyrics.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE8BD;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Afficher les paroles" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Quand le morceau en a : dans la notch ouverte, et la ligne chantée sur la notch fermée ou dans la barre des tâches."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.ShowLyrics, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Where the sung line goes, the notch closed.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE7F4;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Ligne chantée" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Sur la notch fermée, ou dans la barre des tâches : à droite, contre les icônes, avec la pochette."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="2"
+                                MinWidth="200"
+                                VerticalAlignment="Center"
+                                IsEnabled="{x:Bind Settings.ShowLyrics, Mode=OneWay}"
+                                SelectedIndex="{x:Bind LyricsPlaceIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="Dans la notch" />
+                                <ComboBoxItem Content="Dans la barre des tâches" />
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <!--  On the taskbar: against the icons, as wide as the user likes.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}" Visibility="{x:Bind OnTaskbar(Settings.LyricsPlace), Mode=OneWay}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE7C2;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Largeur dans la barre des tâches" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="À droite, contre les icônes. Vous pouvez aussi tirer son bord gauche directement dans la barre des tâches."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Grid Grid.Column="2" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="44" />
+                                </Grid.ColumnDefinitions>
+                                <Slider
+                                    VerticalAlignment="Center"
+                                    IsThumbToolTipEnabled="False"
+                                    Maximum="{x:Bind MaxLyricsWidth}"
+                                    Minimum="{x:Bind MinLyricsWidth}"
+                                    StepFrequency="10"
+                                    Value="{x:Bind Settings.LyricsTaskbarWidth, Mode=TwoWay}" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind FormatSize(Settings.LyricsTaskbarWidth), Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!--  On the taskbar: the player off the closed notch meanwhile.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}" Visibility="{x:Bind OnTaskbar(Settings.LyricsPlace), Mode=OneWay}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE8D6;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Retirer le lecteur de la notch fermée" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Tant que la barre des tâches montre le morceau, la notch fermée garde son état neutre, la mascotte seule. En pause, « Se cacher au repos » décide ; un morceau sans paroles revient sur la notch."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.HidePlayerInNotch, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Lyrics size in the closed notch (or on the taskbar).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE8E9;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Taille de la ligne chantée" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind FormatSize(Settings.CompactLyricsFontSize), Mode=OneWay}" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                IsEnabled="{x:Bind Settings.ShowLyrics, Mode=OneWay}"
+                                Maximum="{x:Bind MaxSize}"
+                                Minimum="{x:Bind MinSize}"
+                                StepFrequency="1"
+                                TickFrequency="1"
+                                TickPlacement="Outside"
+                                Value="{x:Bind Settings.CompactLyricsFontSize, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!--  Presse-papier.  -->
+                <StackPanel
+                    x:Name="ClipboardSection"
+                    Spacing="4"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="Presse-papier" />
+                    <!--  Record the clipboard.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE77F;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Enregistrer l'historique" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Chaque copie est gardée sur cet appareil, sauf les contenus marqués comme privés (gestionnaires de mots de passe)."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.RecordClipboard, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Windows + V.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE765;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Ouvrir avec un raccourci" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Ouvre le presse-papier de la notch (avec Windows + V, à la place de celui de Windows) : ← → pour choisir, Entrée pour coller directement, Échap pour fermer. Sans effet dans les applications lancées en administrateur."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.ReplaceWindowsClipboard, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Which shortcut: shown as keys, recorded through the keyboard hook.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE92E;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
+                                <TextBlock Text="Raccourci" />
+                                <StackPanel x:Name="ShortcutKeys" Orientation="Horizontal" Spacing="4" />
+                                <TextBlock
+                                    x:Name="ShortcutHint"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Avec Ctrl, Alt ou Windows, ou une touche F seule."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <Button
+                                    x:Name="ResetShortcutButton"
+                                    Click="OnResetShortcutClick"
+                                    ToolTipService.ToolTip="Rétablir Windows + V">
+                                    <FontIcon FontSize="14" Glyph="&#xE777;" />
+                                </Button>
+                                <Button
+                                    x:Name="RecordShortcutButton"
+                                    MinWidth="110"
+                                    Click="OnRecordShortcutClick"
+                                    Content="Modifier"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!--  Acknowledge each copy.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE7E7;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Signaler chaque copie" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="À chaque Ctrl + C, la notch fermée s'élargit un instant et annonce ce qui a été copié."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsEnabled="{x:Bind Settings.RecordClipboard, Mode=OneWay}"
+                                IsOn="{x:Bind Settings.SignalCopies, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <!--  How many copies are kept.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE81C;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Taille de l'historique" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind FormatLimit(Settings.ClipboardLimit), Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Maximum="{x:Bind MaxLimit}"
+                                Minimum="{x:Bind MinLimit}"
+                                StepFrequency="1"
+                                Value="{x:Bind Settings.ClipboardLimit, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Clear the history.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE74D;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Effacer l'historique" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Les éléments épinglés sont conservés."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button
+                                x:Name="ClearClipboardButton"
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Click="OnClearClipboardClick"
+                                Content="Effacer" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!--  Drop Zone.  -->
+                <StackPanel
+                    x:Name="DropZoneSection"
+                    Spacing="4"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="Drop Zone" />
+                    <!--  Where dropped files go.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE753;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Hébergeur" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Send : chiffré de bout en bout sur ce PC, la clé n'est que dans le lien (72 h et 20 téléchargements max). Gofile : anonyme, sans chiffrement, supprimé quand plus personne ne télécharge."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="2"
+                                MinWidth="200"
+                                VerticalAlignment="Center"
+                                SelectedIndex="{x:Bind HostIndex, Mode=TwoWay}">
+                                <x:String>Send (2,5 Go · chiffré)</x:String>
+                                <x:String>Gofile (5 Go · anonyme)</x:String>
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <!--  How long Send keeps the files.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE898;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Durée de vie des liens" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Avec Send, les fichiers sont supprimés après ce délai."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="2"
+                                MinWidth="130"
+                                VerticalAlignment="Center"
+                                IsEnabled="{x:Bind HasExpiry(Settings.UploadHost), Mode=OneWay}"
+                                SelectedIndex="{x:Bind ExpiryIndex, Mode=TwoWay}">
+                                <x:String>1 heure</x:String>
+                                <x:String>12 heures</x:String>
+                                <x:String>24 heures</x:String>
+                                <x:String>72 heures</x:String>
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!--  Pomodoro.  -->
+                <StackPanel
+                    x:Name="PomodoroSection"
+                    Spacing="4"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="Pomodoro" />
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                                <ColumnDefinition Width="56" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE736;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Focus" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Le temps de concentration, pendant lequel la mascotte lit."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                IsThumbToolTipEnabled="False"
+                                Maximum="90"
+                                Minimum="5"
+                                StepFrequency="5"
+                                TickFrequency="5"
+                                TickPlacement="Outside"
+                                Value="{x:Bind Settings.PomodoroFocusMinutes, Mode=TwoWay}" />
+                            <TextBlock
+                                Grid.Column="3"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Text="{x:Bind MinutesText(Settings.PomodoroFocusMinutes), Mode=OneWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                                <ColumnDefinition Width="56" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE708;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Petite pause" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Après chaque focus."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                IsThumbToolTipEnabled="False"
+                                Maximum="30"
+                                Minimum="1"
+                                StepFrequency="1"
+                                TickFrequency="5"
+                                TickPlacement="Outside"
+                                Value="{x:Bind Settings.PomodoroShortBreakMinutes, Mode=TwoWay}" />
+                            <TextBlock
+                                Grid.Column="3"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Text="{x:Bind MinutesText(Settings.PomodoroShortBreakMinutes), Mode=OneWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                                <ColumnDefinition Width="56" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE708;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Grande pause" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Après une série de focus."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                IsThumbToolTipEnabled="False"
+                                Maximum="60"
+                                Minimum="5"
+                                StepFrequency="5"
+                                TickFrequency="5"
+                                TickPlacement="Outside"
+                                Value="{x:Bind Settings.PomodoroLongBreakMinutes, Mode=TwoWay}" />
+                            <TextBlock
+                                Grid.Column="3"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Text="{x:Bind MinutesText(Settings.PomodoroLongBreakMinutes), Mode=OneWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                                <ColumnDefinition Width="56" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE8EF;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Focus avant la grande pause" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Le nombre de sessions d'une série (les points de l'onglet)."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                IsThumbToolTipEnabled="False"
+                                Maximum="8"
+                                Minimum="2"
+                                StepFrequency="1"
+                                TickFrequency="1"
+                                TickPlacement="Outside"
+                                Value="{x:Bind Settings.PomodoroSessions, Mode=TwoWay}" />
+                            <TextBlock
+                                Grid.Column="3"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Text="{x:Bind CountText(Settings.PomodoroSessions), Mode=OneWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE768;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Lancer les pauses toutes seules" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="À la fin d'un focus, la pause démarre sans attendre."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.PomodoroAutoStartBreaks, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE768;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Relancer le focus tout seul" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="À la fin d'une pause, le focus suivant démarre sans attendre."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.PomodoroAutoStartFocus, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE767;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Carillon" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Un son doux à la fin de chaque focus et de chaque pause."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.PomodoroSound, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!--  Assistant.  -->
+                <StackPanel
+                    x:Name="AssistantSection"
+                    Spacing="4"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="Assistant" />
+                    <!--  The Gemini API key: kept by Windows (Credential Manager), checked against Google when saved.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16" RowSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE8D7;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Clé API Gemini" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Cliquez sur la mascotte pour lui parler. La clé reste sur ce PC, dans le Gestionnaire d'identification de Windows ; vos questions sont envoyées à Google."
+                                    TextWrapping="Wrap" />
+                                <HyperlinkButton
+                                    Margin="-12,0,0,0"
+                                    Content="Obtenir une clé gratuite (Google AI Studio)"
+                                    NavigateUri="https://aistudio.google.com/apikey" />
+                            </StackPanel>
+                            <Grid
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                ColumnSpacing="8"
+                                RowSpacing="6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <PasswordBox x:Name="ApiKeyBox" PlaceholderText="Collez votre clé API" />
+                                <Button
+                                    x:Name="SaveKeyButton"
+                                    Grid.Column="1"
+                                    Click="OnSaveKeyClick"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                                <Button
+                                    x:Name="ForgetKeyButton"
+                                    Grid.Column="2"
+                                    Click="OnForgetKeyClick"
+                                    ToolTipService.ToolTip="Oublier la clé">
+                                    <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                                </Button>
+                                <TextBlock
+                                    x:Name="ApiKeyStatus"
+                                    Grid.Row="1"
+                                    Grid.ColumnSpan="3"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    TextWrapping="Wrap" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!--  How to get a key, step by step: open while there is none yet (see ShowKeyState).  -->
+                    <Expander
+                        x:Name="KeyGuide"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        Header="Obtenir une clé API, pas à pas">
+                        <StackPanel Spacing="16">
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border
+                                    Width="26"
+                                    Height="26"
+                                    VerticalAlignment="Top"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="13">
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        Text="1" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Ouvrez Google AI Studio" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="La page des clés API, dans votre navigateur."
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Click="OnOpenAiStudioClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon FontSize="12" Glyph="&#xE8A7;" />
+                                        <TextBlock Text="Ouvrir" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border
+                                    Width="26"
+                                    Height="26"
+                                    VerticalAlignment="Top"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="13">
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        Text="2" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Connectez-vous avec votre compte Google" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="C'est gratuit : un compte Gmail suffit."
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border
+                                    Width="26"
+                                    Height="26"
+                                    VerticalAlignment="Top"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="13">
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        Text="3" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Cliquez sur « Create API key »" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="(« Créer une clé API »), puis choisissez un projet, ou laissez Google en créer un."
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border
+                                    Width="26"
+                                    Height="26"
+                                    VerticalAlignment="Top"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="13">
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        Text="4" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Copiez la clé" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="Une longue suite de lettres et de chiffres qui commence par « AIza ». Gardez-la pour vous."
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border
+                                    Width="26"
+                                    Height="26"
+                                    VerticalAlignment="Top"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="13">
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        Text="5" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Collez-la ici" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="Elle est vérifiée auprès de Google, puis gardée par Windows sur ce PC."
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="PasteKeyButton"
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Click="OnPasteKeyClick"
+                                    Style="{StaticResource AccentButtonStyle}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon FontSize="12" Glyph="&#xE77F;" />
+                                        <TextBlock Text="Coller et enregistrer" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                    <!--  Which model answers: the list the key may use, read from Google; automatic by default.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE945;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Modèle" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Automatique : le plus rapide des modèles de tous les jours que la clé peut utiliser."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox
+                                x:Name="ModelBox"
+                                Grid.Column="2"
+                                MinWidth="220"
+                                VerticalAlignment="Center"
+                                SelectionChanged="OnModelChanged" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Its voice's volume, talking aloud with it (also in the bar meanwhile, and the wheel on the mascot).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE767;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Volume de sa voix" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Quand vous parlez avec la mascotte. Aussi dans la barre pendant la conversation, ou la molette sur la mascotte."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Slider
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Maximum="100"
+                                Minimum="0"
+                                StepFrequency="5"
+                                Value="{x:Bind Settings.AssistantVoiceVolume, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Its shortcut, from anywhere: shown as keys, recorded through the keyboard hook.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE92E;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
+                                <TextBlock Text="Ouvrir avec un raccourci" />
+                                <StackPanel x:Name="AssistantKeys" Orientation="Horizontal" Spacing="4" />
+                                <TextBlock
+                                    x:Name="AssistantShortcutHint"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Depuis n'importe où, comme un clic sur la mascotte."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <Button
+                                    x:Name="ResetAssistantShortcutButton"
+                                    Click="OnResetAssistantShortcutClick"
+                                    ToolTipService.ToolTip="Rétablir Ctrl + Maj + Espace">
+                                    <FontIcon FontSize="14" Glyph="&#xE777;" />
+                                </Button>
+                                <Button
+                                    x:Name="RecordAssistantShortcutButton"
+                                    MinWidth="110"
+                                    Click="OnRecordAssistantShortcutClick"
+                                    Content="Modifier" />
+                                <ToggleSwitch
+                                    MinWidth="0"
+                                    IsOn="{x:Bind Settings.AssistantShortcutOn, Mode=TwoWay}"
+                                    OffContent=""
+                                    OnContent="" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </NavigationView>
+    </Grid>
+</Window>

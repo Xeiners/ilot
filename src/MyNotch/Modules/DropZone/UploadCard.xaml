@@ -1,0 +1,137 @@
+<UserControl
+    x:Class="MyNotch.Modules.DropZone.UploadCard"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:MyNotch.Controls"
+    Width="210"
+    Height="96">
+
+    <!--
+        One upload: name, then size and how long the link lasts; at the bottom, what is happening ("45 % • 3,2 Mo/s",
+        the link, a pause or an error) next to its actions, always at hand; a thin progress bar along the bottom edge
+        while sending. Clicking a sent file copies its link again.
+    -->
+    <Grid x:Name="CardRoot">
+        <controls:MotionButton
+            x:Name="Body"
+            Click="OnBodyClick"
+            HaloOpacity="0.06"
+            HaloRestScale="1"
+            HoverScale="0.03"
+            PressScale="0.05"
+            Style="{StaticResource NotchCardButtonStyle}">
+            <Grid x:Name="Face">
+                <StackPanel Margin="12,10,12,0" VerticalAlignment="Top">
+                    <Grid ColumnSpacing="7">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon
+                            x:Name="KindIcon"
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="{StaticResource NotchSecondaryTextBrush}" />
+                        <TextBlock
+                            x:Name="NameText"
+                            Grid.Column="1"
+                            Style="{StaticResource NotchTitleTextStyle}"
+                            FontSize="12.5" />
+                    </Grid>
+                    <TextBlock
+                        x:Name="DetailText"
+                        Margin="0,2,0,0"
+                        Style="{StaticResource NotchSubtitleTextStyle}"
+                        FontSize="11"
+                        Typography.NumeralAlignment="Tabular" />
+                </StackPanel>
+
+                <!--  Bottom left, beside the actions (its right margin follows how many there are).  -->
+                <TextBlock
+                    x:Name="StatusText"
+                    Height="30"
+                    Margin="12,0,12,12"
+                    VerticalAlignment="Bottom"
+                    FontFamily="Segoe UI Variable Text"
+                    FontSize="12"
+                    FontWeight="SemiBold"
+                    LineHeight="30"
+                    LineStackingStrategy="BlockLineHeight"
+                    MaxLines="1"
+                    TextTrimming="CharacterEllipsis"
+                    Typography.NumeralAlignment="Tabular" />
+
+                <!--  Progress: a thin bar along the bottom edge while zipping or sending.  -->
+                <Grid
+                    x:Name="ProgressBar"
+                    Height="3"
+                    Margin="14,0,14,6"
+                    VerticalAlignment="Bottom">
+                    <Border Background="{StaticResource NotchTrackBrush}" CornerRadius="1.5" />
+                    <Border
+                        x:Name="ProgressFill"
+                        Background="{StaticResource NotchTrackFillBrush}"
+                        CornerRadius="1.5" />
+                </Grid>
+            </Grid>
+        </controls:MotionButton>
+
+        <!--  Actions, always visible: a small toolbar at the bottom right.  -->
+        <Border
+            x:Name="Toolbar"
+            Margin="0,0,8,12"
+            Padding="1"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Background="#1AFFFFFF"
+            CornerRadius="15">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <controls:MotionButton
+                    x:Name="PrimaryAction"
+                    Width="28"
+                    Height="28"
+                    Click="OnPrimaryActionClick">
+                    <FontIcon x:Name="PrimaryIcon" FontSize="13" />
+                </controls:MotionButton>
+                <controls:MotionButton
+                    x:Name="OpenAction"
+                    Width="28"
+                    Height="28"
+                    AutomationProperties.Name="Ouvrir le lien"
+                    Click="OnOpenClick"
+                    ToolTipService.ToolTip="Ouvrir le lien">
+                    <FontIcon FontSize="13" Glyph="&#xE8A7;" />
+                </controls:MotionButton>
+                <controls:MotionButton
+                    x:Name="RemoveAction"
+                    Width="28"
+                    Height="28"
+                    Click="OnRemoveClick">
+                    <FontIcon x:Name="RemoveIcon" FontSize="12" />
+                </controls:MotionButton>
+            </StackPanel>
+        </Border>
+
+        <!--  Confirmation after a copy.  -->
+        <Border
+            x:Name="Confirmation"
+            Background="#F2161618"
+            CornerRadius="16"
+            IsHitTestVisible="False">
+            <StackPanel
+                x:Name="ConfirmationContent"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="5">
+                <FontIcon FontSize="18" Foreground="{StaticResource NotchPrimaryTextBrush}" Glyph="&#xE73E;" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontFamily="Segoe UI Variable Text"
+                    FontSize="12"
+                    FontWeight="SemiBold"
+                    Foreground="{StaticResource NotchPrimaryTextBrush}"
+                    Text="Lien copié" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

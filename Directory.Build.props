@@ -1,0 +1,12 @@
+<Project>
+  <!-- Settings shared by every project of the solution. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <Product>MyNotch</Product>
+    <Company>MyNotch</Company>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+</Project>

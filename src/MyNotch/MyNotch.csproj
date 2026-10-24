@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>MyNotch</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64;ARM64;x86</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64;win-x86</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- Unpackaged and self-contained: builds and runs like any .exe, no MSIX and no runtime installer. -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <SatelliteResourceLanguages>en;fr</SatelliteResourceLanguages>
+    <ApplicationIcon>Assets\MyNotch.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- WinUI apps are architecture specific: lets a plain `dotnet build` / `dotnet run` work without -p:Platform. -->
+  <PropertyGroup>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$(Platform.ToLowerInvariant())</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!--
+    Windows App SDK 2.5.1, components only: the Microsoft.WindowsAppSDK metapackage would also ship the AI / ML /
+    Search / Widgets runtimes (onnxruntime, DirectML…), about 60 MB the notch never uses.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.9" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="2.3.12" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.9" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <!-- WASAPI loopback capture for the live audio visualizer. -->
+    <PackageReference Include="NAudio.Wasapi" Version="3.3.0" />
+    <!-- The QR code of the Drop Zone's Wi-Fi sharing (its module matrix only: drawn as vector shapes). -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
+  <!--
+    Everything 1.4.1 (voidtools, MIT licence), portable 64-bit build, unmodified and code-signed: the search's file engine,
+    run out of sight by the notch (Modules/Search/Everything/EverythingEngine.cs). Copied next to the notch, with its licence.
+  -->
+  <ItemGroup>
+    <None Update="Modules\Search\Everything\Engine\Everything.exe" Link="Everything\Everything.exe" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Modules\Search\Everything\Engine\License.txt" Link="Everything\License.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- The app's icon: in the .exe (Explorer, Start menu, installer), and next to it for the settings window's own. -->
+  <ItemGroup>
+    <None Update="Assets\MyNotch.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

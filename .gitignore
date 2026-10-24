@@ -1,0 +1,29 @@
+## Build output
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+AppPackages/
+BundleArtifacts/
+*.appx
+*.msix
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userprefs
+
+## NuGet
+*.nupkg
+packages/
+
+## Release output (installer\build.ps1: the published app and MyNotch-Setup-<version>.exe)
+artifacts/
+
+## Logs and test results
+*.log
+*.binlog
+TestResults/

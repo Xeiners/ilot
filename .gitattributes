@@ -1,0 +1,10 @@
+# Text files: LF, in the repository and on disk (as they are written).
+* text=auto eol=lf
+
+# Binaries, never touched.
+*.exe binary
+*.dll binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.ttf binary
