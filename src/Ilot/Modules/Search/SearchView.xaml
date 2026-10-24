@@ -1,0 +1,71 @@
+<UserControl
+    x:Class="Ilot.Modules.Search.SearchView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <!--  The query: big and plain, the text itself is the field.  -->
+        <Style
+            x:Key="SearchQueryStyle"
+            BasedOn="{StaticResource NotchFieldTextBoxStyle}"
+            TargetType="TextBox">
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+            <Setter Property="FontSize" Value="19" />
+            <Setter Property="SelectionHighlightColor" Value="#FF8A6A1F" />
+        </Style>
+    </UserControl.Resources>
+
+    <!--  The open notch is a search bar: a magnifier, the query, and Escape to leave. The results fall under it.  -->
+    <Grid
+        x:Name="LayoutRoot"
+        Height="60"
+        Padding="24,0,18,0"
+        VerticalAlignment="Top"
+        ColumnSpacing="14">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <FontIcon
+            x:Name="SearchGlyph"
+            Width="20"
+            Height="20"
+            VerticalAlignment="Center"
+            FontSize="18"
+            Foreground="#8CFFFFFF"
+            Glyph="&#xE721;" />
+
+        <Grid Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock
+                x:Name="Hint"
+                VerticalAlignment="Center"
+                FontFamily="Segoe UI Variable Display"
+                FontSize="19"
+                Foreground="#52FFFFFF"
+                IsHitTestVisible="False"
+                Text="Applis, fichiers, réglages, calculs, « code »…"
+                TextTrimming="CharacterEllipsis" />
+            <TextBox
+                x:Name="QueryBox"
+                AutomationProperties.Name="Rechercher"
+                Style="{StaticResource SearchQueryStyle}" />
+        </Grid>
+
+        <Border
+            Grid.Column="2"
+            Height="22"
+            Padding="8,0"
+            VerticalAlignment="Center"
+            Background="#1AFFFFFF"
+            CornerRadius="7">
+            <TextBlock
+                VerticalAlignment="Center"
+                FontFamily="Segoe UI Variable Text"
+                FontSize="11"
+                Foreground="#80FFFFFF"
+                Text="Échap" />
+        </Border>
+    </Grid>
+</UserControl>

@@ -20,7 +20,7 @@ BundleArtifacts/
 *.nupkg
 packages/
 
-## Release output (installer\build.ps1: the published app and MyNotch-Setup-<version>.exe)
+## Release output (installer\build.ps1: the published app and Ilot-Setup-<version>.exe)
 artifacts/
 
 ## Logs and test results

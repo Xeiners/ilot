@@ -1,0 +1,186 @@
+<UserControl
+    x:Class="Ilot.Notch.TourCard"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Ilot.Controls"
+    RequestedTheme="Dark">
+
+    <!--  A step of the tour, in the bubble under the open notch (see NotchView.StartTour).  -->
+    <Grid Padding="20,16,20,16" RowSpacing="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border
+                Width="30"
+                Height="30"
+                Background="{StaticResource NotchPillBrush}"
+                CornerRadius="15">
+                <FontIcon
+                    x:Name="Glyph"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    FontSize="14"
+                    Foreground="{StaticResource NotchGlyphBrush}" />
+            </Border>
+            <TextBlock
+                x:Name="Title"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                FontFamily="Segoe UI Variable Display"
+                FontSize="15"
+                FontWeight="SemiBold"
+                Foreground="{StaticResource NotchPrimaryTextBrush}"
+                TextWrapping="Wrap" />
+            <TextBlock
+                x:Name="Counter"
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                FontFamily="Segoe UI Variable Text"
+                FontSize="12"
+                Foreground="{StaticResource NotchSecondaryTextBrush}"
+                Typography.NumeralAlignment="Tabular" />
+        </Grid>
+
+        <!--  What it does; on the right, for the drop, a sample file to drag onto the notch.  -->
+        <Grid Grid.Row="1" ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
+                x:Name="Body"
+                VerticalAlignment="Center"
+                FontFamily="Segoe UI Variable Text"
+                FontSize="13"
+                Foreground="#D0FFFFFF"
+                LineHeight="19"
+                TextWrapping="Wrap" />
+            <Border
+                x:Name="SampleFile"
+                Grid.Column="1"
+                Width="74"
+                Padding="0,10,0,8"
+                VerticalAlignment="Center"
+                Background="{StaticResource NotchCardBrush}"
+                BorderBrush="#33FFFFFF"
+                BorderThickness="1"
+                CanDrag="True"
+                CornerRadius="12"
+                DragStarting="OnSampleDragStarting"
+                Visibility="Collapsed">
+                <StackPanel HorizontalAlignment="Center" Spacing="6">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        FontSize="24"
+                        Foreground="{StaticResource NotchGlyphBrush}"
+                        Glyph="&#xE8A5;" />
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        FontFamily="Segoe UI Variable Text"
+                        FontSize="11"
+                        Foreground="{StaticResource NotchSecondaryTextBrush}"
+                        Text="exemple.txt" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!--  To try it: what to do, then that it is done.  -->
+        <Border
+            x:Name="TryRow"
+            Grid.Row="2"
+            Padding="12,8"
+            Background="#14FFFFFF"
+            CornerRadius="12"
+            Visibility="Collapsed">
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <FontIcon
+                    x:Name="TryGlyph"
+                    VerticalAlignment="Center"
+                    FontSize="14"
+                    Glyph="&#xE7C9;" />
+                <TextBlock
+                    x:Name="TryText"
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    FontFamily="Segoe UI Variable Text"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    Foreground="{StaticResource NotchPrimaryTextBrush}"
+                    TextWrapping="Wrap" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" Margin="0,4,0,0" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <controls:MotionButton
+                x:Name="SkipButton"
+                MinWidth="0"
+                Padding="10,0"
+                Background="Transparent"
+                Click="OnSkipClick"
+                Content="Passer la visite"
+                Foreground="{StaticResource NotchSecondaryTextBrush}"
+                HaloOpacity="0.08"
+                HaloRestScale="0.9"
+                HoverScale="0.04"
+                PressScale="0.06"
+                Style="{StaticResource NotchPillButtonStyle}" />
+            <controls:MotionButton
+                x:Name="BackButton"
+                Grid.Column="2"
+                Width="28"
+                MinWidth="0"
+                Padding="0"
+                AutomationProperties.Name="Précédent"
+                Click="OnBackClick"
+                HaloOpacity="0.1"
+                HaloRestScale="1"
+                HoverScale="0.04"
+                PressScale="0.06"
+                Style="{StaticResource NotchPillButtonStyle}">
+                <FontIcon FontSize="11" Glyph="&#xE76B;" />
+            </controls:MotionButton>
+            <controls:MotionButton
+                x:Name="ActionButton"
+                Grid.Column="3"
+                Click="OnActionClick"
+                HaloOpacity="0.1"
+                HaloRestScale="1"
+                HoverScale="0.04"
+                PressScale="0.06"
+                Style="{StaticResource NotchPillButtonStyle}"
+                Visibility="Collapsed" />
+            <controls:MotionButton
+                x:Name="NextButton"
+                Grid.Column="4"
+                Background="#F2FFFFFF"
+                Click="OnNextClick"
+                Foreground="#FF111114"
+                HaloOpacity="0.1"
+                HaloRestScale="1"
+                HoverScale="0.04"
+                PressScale="0.06"
+                Style="{StaticResource NotchPillButtonStyle}" />
+        </Grid>
+    </Grid>
+</UserControl>

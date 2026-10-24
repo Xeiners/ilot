@@ -1,0 +1,199 @@
+<UserControl
+    x:Class="Ilot.Modules.Clipboard.ClipboardPreview"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Ilot.Controls"
+    IsTabStop="True"
+    UseSystemFocusVisuals="False">
+
+    <UserControl.Resources>
+        <!--  The text, as a page: no box around it (the field under it is the box), its scroll bar hidden.  -->
+        <Style
+            x:Key="PageStyle"
+            BasedOn="{StaticResource NotchFieldTextBoxStyle}"
+            TargetType="TextBox">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <ScrollViewer
+                            x:Name="ContentElement"
+                            AutomationProperties.AccessibilityView="Raw"
+                            HorizontalScrollBarVisibility="Disabled"
+                            HorizontalScrollMode="Disabled"
+                            IsTabStop="False"
+                            VerticalScrollBarVisibility="Hidden"
+                            VerticalScrollMode="Enabled"
+                            ZoomMode="Disabled" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <!--
+        A copy, larger, in a drop under the notch, to be touched up before copying it again: an image drawn on with a
+        pen (to circle something) or cropped; a text edited. The tools along the top, then "Copier".
+    -->
+    <Grid Padding="18,12,14,18" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!--  What it is.  -->
+            <StackPanel
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
+                <FontIcon
+                    x:Name="KindIcon"
+                    FontSize="13"
+                    Foreground="{StaticResource NotchSecondaryTextBrush}" />
+                <TextBlock
+                    x:Name="TitleText"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource NotchTitleTextStyle}"
+                    FontSize="14" />
+                <TextBlock
+                    x:Name="DetailText"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource NotchSubtitleTextStyle}"
+                    FontSize="12"
+                    Typography.NumeralAlignment="Tabular" />
+            </StackPanel>
+
+            <!--  The tools (the image's), copying, closing.  -->
+            <StackPanel
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="4">
+                <StackPanel
+                    x:Name="ImageTools"
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    Visibility="Collapsed">
+                    <controls:MotionButton
+                        x:Name="PenButton"
+                        Width="30"
+                        Height="30"
+                        AutomationProperties.Name="Crayon"
+                        Click="OnPenClick"
+                        ToolTipService.ToolTip="Crayon : dessiner sur l'image">
+                        <FontIcon x:Name="PenIcon" FontSize="14" Glyph="&#xE70F;" />
+                    </controls:MotionButton>
+                    <controls:MotionButton
+                        x:Name="CropButton"
+                        Width="30"
+                        Height="30"
+                        AutomationProperties.Name="Rogner"
+                        Click="OnCropClick"
+                        ToolTipService.ToolTip="Rogner : tracer le cadre à garder">
+                        <FontIcon FontSize="14" Glyph="&#xE7A8;" />
+                    </controls:MotionButton>
+                    <controls:MotionButton
+                        Width="30"
+                        Height="30"
+                        AutomationProperties.Name="Faire pivoter"
+                        Click="OnRotateClick"
+                        ToolTipService.ToolTip="Faire pivoter d'un quart de tour (R)">
+                        <FontIcon FontSize="14" Glyph="&#xE7AD;" />
+                    </controls:MotionButton>
+                    <controls:MotionButton
+                        Width="30"
+                        Height="30"
+                        AutomationProperties.Name="Retourner"
+                        Click="OnMirrorClick"
+                        ToolTipService.ToolTip="Retourner en miroir (M)">
+                        <FontIcon FontSize="14" Glyph="&#xE8AB;" />
+                    </controls:MotionButton>
+                    <StackPanel
+                        x:Name="Inks"
+                        Margin="6,0"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="2" />
+                    <controls:MotionButton
+                        x:Name="UndoButton"
+                        Width="30"
+                        Height="30"
+                        AutomationProperties.Name="Annuler la dernière retouche"
+                        Click="OnUndoClick"
+                        IsEnabled="False"
+                        ToolTipService.ToolTip="Annuler (Ctrl+Z)">
+                        <FontIcon FontSize="14" Glyph="&#xE7A7;" />
+                    </controls:MotionButton>
+                    <Border
+                        Width="1"
+                        Height="18"
+                        Margin="6,0"
+                        Background="#26FFFFFF" />
+                </StackPanel>
+
+                <controls:MotionButton
+                    x:Name="CopyButton"
+                    Background="#F2FFFFFF"
+                    Click="OnCopyClick"
+                    Foreground="#FF111114"
+                    HaloOpacity="0.1"
+                    HaloRestScale="1"
+                    HoverScale="0.04"
+                    PressScale="0.06"
+                    Style="{StaticResource NotchPillButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <FontIcon
+                            x:Name="CopyIcon"
+                            FontSize="12"
+                            Glyph="&#xE8C8;" />
+                        <TextBlock x:Name="CopyText" Text="Copier" />
+                    </StackPanel>
+                </controls:MotionButton>
+                <controls:MotionButton
+                    Width="30"
+                    Height="30"
+                    AutomationProperties.Name="Fermer"
+                    Click="OnCloseClick"
+                    ToolTipService.ToolTip="Fermer (Échap)">
+                    <FontIcon FontSize="11" Glyph="&#xE711;" />
+                </controls:MotionButton>
+            </StackPanel>
+        </Grid>
+
+        <!--  An image: its pixels, and over them the stroke being drawn or the frame being traced.  -->
+        <Grid
+            x:Name="ImageStage"
+            Grid.Row="1"
+            Visibility="Collapsed">
+            <Viewbox x:Name="Fit" Stretch="Uniform">
+                <Grid x:Name="Surface">
+                    <Image x:Name="Picture" Stretch="Fill" />
+                    <Canvas x:Name="Ink" Background="Transparent" />
+                </Grid>
+            </Viewbox>
+        </Grid>
+
+        <!--  A text: to edit, as a page.  -->
+        <Border
+            x:Name="TextStage"
+            Grid.Row="1"
+            Padding="14,12,10,12"
+            Background="{StaticResource NotchFieldBrush}"
+            CornerRadius="14"
+            Visibility="Collapsed">
+            <TextBox
+                x:Name="Editor"
+                AutomationProperties.Name="Texte copié"
+                Style="{StaticResource PageStyle}" />
+        </Border>
+    </Grid>
+</UserControl>

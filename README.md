@@ -1,4 +1,4 @@
-# MyNotch
+# Ilot
 
 Une « Dynamic Island » pour Windows 11, en C# / WinUI 3 (Windows App SDK 2.5, .NET 10).
 
@@ -98,7 +98,7 @@ Fonctionnalités :
   temps de la notification ; désactivable). Une rangée de tuiles qui
   défile à la molette, chacune avec son aperçu : texte, domaine du lien, pastille de couleur et sa conversion RVB,
   miniature de l'image. Clic sur une tuile : elle repart dans le presse-papier, prête à coller. Au survol :
-  aperçu (l'œil), ouvrir le lien, copier la couleur en `rgb(…)`, enregistrer l'image dans `Images\MyNotch`,
+  aperçu (l'œil), ouvrir le lien, copier la couleur en `rgb(…)`, enregistrer l'image dans `Images\Ilot`,
   supprimer, épingler. **L'aperçu** (l'œil, ou **Espace** dans la recherche : Windows + V puis Espace montre la
   dernière copie) tombe sous la notch, en grand : une image se retouche au **crayon** (cinq couleurs, pour entourer un
   endroit), se **rogne** (tracer le cadre à garder), **pivote** d'un quart de tour (R) et se **retourne** en miroir
@@ -122,7 +122,7 @@ Fonctionnalités :
   restent en tête et ne sont jamais chassés par les nouvelles copies ; les 25 dernières copies sont gardées (de 5 à 100
   dans les paramètres ; au-delà, chaque copie remplace la plus ancienne), une
   copie déjà présente remonte au lieu d'être dupliquée. Les contenus marqués comme privés (gestionnaires de mots
-  de passe) ne sont jamais enregistrés. Historique dans `%LOCALAPPDATA%\MyNotch\clipboard.json`, images à côté
+  de passe) ne sont jamais enregistrés. Historique dans `%LOCALAPPDATA%\Ilot\clipboard.json`, images à côté
   dans `clipboard\`.
 - **Drop Zone** : glisser des fichiers sur la notch, même fermée, l'ouvre sur l'onglet Drop Zone. Les fichiers
   partent sur l'hébergeur choisi dans les paramètres :
@@ -139,7 +139,7 @@ Fonctionnalités :
   la tuile, « 45 % • 3,2 Mo/s » sur une fine barre, et un cadenas pour un envoi chiffré. Une fois
   envoyé, le lien est copié et la notch annonce « Lien copié ». Si le réseau tombe, l'envoi se met en pause
   (« attente du réseau… ») et reprend seul dès son retour (ou après 2 s, 4 s… jusqu'à 1 min). La file est gardée
-  dans `%LOCALAPPDATA%\MyNotch\UploadsQueue\` : un envoi interrompu repart au lancement suivant. Si l'hébergeur
+  dans `%LOCALAPPDATA%\Ilot\UploadsQueue\` : un envoi interrompu repart au lancement suivant. Si l'hébergeur
   cesse de prendre le fichier, la tuile le dit (« 73 % • en attente… ») ; au bout de 75 s, l'envoi repart de zéro
   (« Send ne répond plus – nouvel essai… », 4 essais au plus : ni Send ni Gofile ne reprennent en cours). Les liens restent
   dans la liste jusqu'à leur expiration (clic : recopier ; survol : ouvrir, retirer).
@@ -154,13 +154,13 @@ Fonctionnalités :
   (`Local/MdnsResponder.cs`, RFC 6762, sans bibliothèque) : il demande d'abord au réseau si le nom est libre
   (sinon `mynotch-2.local`…), l'annonce, puis le retire à l'arrêt. iPhone, Mac, Windows, Linux et Android récents
   le résolvent ; le QR code, lui, garde l'adresse IP, qui marche partout.
-  **Chat et collage en direct** : le bouton **Chat** ouvre sous la notch une bulle redimensionnable (`NotchContext.ShowBubble`) synchronisée en temps réel avec la page `mynotch.local` (attente longue HTTP, 0 % de CPU au repos). Dans les deux sens, on peut envoyer un message ou un lien (détecté automatiquement, cliquable et copiable en un clic), **coller directement (`Ctrl + V` ou bouton « Coller »)** une capture d'écran, une image, du texte, un lien ou des fichiers copiés dans l'Explorateur, ou glisser-déposer des fichiers sur la bulle ou la page. Les textes, liens et images collées arrivent directement dans le fil (aperçu de l'image, copier dans le presse-papier ou enregistrer dans `Images\MyNotch`).
+  **Chat et collage en direct** : le bouton **Chat** ouvre sous la notch une bulle redimensionnable (`NotchContext.ShowBubble`) synchronisée en temps réel avec la page `mynotch.local` (attente longue HTTP, 0 % de CPU au repos). Dans les deux sens, on peut envoyer un message ou un lien (détecté automatiquement, cliquable et copiable en un clic), **coller directement (`Ctrl + V` ou bouton « Coller »)** une capture d'écran, une image, du texte, un lien ou des fichiers copiés dans l'Explorateur, ou glisser-déposer des fichiers sur la bulle ou la page. Les textes, liens et images collées arrivent directement dans le fil (aperçu de l'image, copier dans le presse-papier ou enregistrer dans `Images\Ilot`).
   Pour les fichiers envoyés vers le PC (`Téléchargements`), un fichier reçu attend votre accord, caché : la notch fermée descend une carte
   façon appel entrant (« IMG_2034.jpg · 3,2 Mo · depuis le téléphone », **Refuser** en rouge, **Accepter** en vert ;
   plusieurs fichiers en attente se décident ensemble), et la bulle de chat affiche aussi les boutons **Accepter / Refuser** sur le message. Le survol ne l'ouvre pas, pour cliquer tranquille ; si la
   notch s'ouvre, la carte s'efface et revient à la fermeture, et la Drop Zone ouverte pose la même question à côté
   de ses boutons (« Garder IMG_2034.jpg ? »). Accepté, le fichier rejoint Téléchargements (« Fichier enregistré ») ;
-  refusé, il est supprimé sans trace (« Fichier refusé ») ; jamais décidé, il disparaît à la fermeture de MyNotch.
+  refusé, il est supprimé sans trace (« Fichier refusé ») ; jamais décidé, il disparaît à la fermeture d'Ilot.
   La page du téléphone suit en direct : « en attente de l’accord du PC… », puis « Accepté par le PC » ou « Refusé par le PC ».
   Ces questions passent par `NotchContext.Ask()`, utilisable par tout module. La
   pilule fermée suit le transfert avec un anneau et son pourcentage, la Drop Zone ouverte avec sa vitesse (« 42 % •
@@ -169,7 +169,7 @@ Fonctionnalités :
   (`Modules/DropZone/Local/LocalTransferService.cs`, un petit serveur HTTP sur `TcpListener`, sur l'interface du Wi-Fi seulement, port 80 si libre, sinon 8080)
   n'existe que pendant le partage : il s'arrête avec « Arrêter », après 10 min sans requête, ou si le PC quitte ce
   réseau. Chaque partage a une clé aléatoire dans son adresse : personne d'autre sur le réseau ne voit les fichiers,
-  et un ancien QR code ne marche plus. Au premier partage, Windows demande d'autoriser MyNotch dans le pare-feu
+  et un ancien QR code ne marche plus. Au premier partage, Windows demande d'autoriser Ilot dans le pare-feu
   (réseaux privés : TCP pour la page, UDP 5353 pour le nom) ; un Wi-Fi déclaré « public » bloque l'accès.
 - **Code**, dans la recherche (plus d'onglet) : « code » tapé dans Ctrl + Q (et des mots après : « code react »)
   remplace les résultats par la liste des projets récents de VS Code (dossiers, espaces de travail `.code-workspace`, dossiers distants WSL /
@@ -196,7 +196,7 @@ Fonctionnalités :
   La roue dentée de l'onglet fait tomber sous la notch une bulle avec ses réglages, sur des règles graduées qu'on fait
   glisser (molette, clic sur une graduation), appliqués à chaud ; ils sont
   aussi dans Paramètres → Pomodoro : les durées (25 / 5 / 15 min par défaut), le nombre de focus avant la grande pause (4), les
-  enchaînements automatiques, le carillon. Les sessions du jour sont gardées (`%LOCALAPPDATA%\MyNotch\pomodoro.json`,
+  enchaînements automatiques, le carillon. Les sessions du jour sont gardées (`%LOCALAPPDATA%\Ilot\pomodoro.json`,
   60 jours). Rien ne tourne quand le minuteur est arrêté.
 - **Notes** : les notes en cartes, comme le presse-papier (titre, premières lignes, « Il y a 5 min »), avec
   « Nouvelle note » en tête et une recherche dans les titres et les textes (la loupe). Un clic sur une carte ouvre
@@ -215,7 +215,7 @@ Fonctionnalités :
   Retour arrière juste après une case l'enlève, Ctrl + Entrée coche, Ctrl + B / I / U. Le collé est du texte seul,
   dans la mise en forme où il arrive. En bas, mots et caractères, et « Enregistré ». Cliquer dans la note prend le
   clavier et garde la notch ouverte ; Échap ou un clic ailleurs le rend. Quitter l'onglet, ou la notch qui se
-  referme, range la feuille (la note est enregistrée). Base SQLite `%LOCALAPPDATA%\MyNotch\notes.db` (table
+  referme, range la feuille (la note est enregistrée). Base SQLite `%LOCALAPPDATA%\Ilot\notes.db` (table
   `Notes` : id, title, content en RTF, plain pour les cartes et la recherche, created_at, updated_at) par le
   `winsqlite3.dll` de Windows : lue au premier affichage de l'onglet seulement, écrite peu après la dernière frappe
   hors du thread UI, et une dernière fois à la fermeture. Les notes écrites en Markdown avant sont converties en mise
@@ -240,7 +240,7 @@ Fonctionnalités :
   La correspondance ignore majuscules et accents (« parametres » trouve « Paramètres ») et lit les initiales (« vsc » :
   Visual Studio Code). Le classement tient compte de la qualité de la correspondance (début du nom, début d'un mot,
   initiales, lettres dans l'ordre), du type, de ce que vous ouvrez souvent et récemment
-  (`%LOCALAPPDATA%\MyNotch\search.json`, et le compteur d'Everything), et pour les fichiers de leur emplacement
+  (`%LOCALAPPDATA%\Ilot\search.json`, et le compteur d'Everything), et pour les fichiers de leur emplacement
   (Bureau, Documents, Téléchargements… avant les dossiers profonds ou cachés) et de leur fraîcheur. Les sources
   locales répondent tout de suite ; la liste attend Everything 90 ms au plus pour ne pas sauter.
   Clavier : `↑` `↓` pour choisir, `Entrée` pour ouvrir, `Ctrl + Entrée` pour montrer dans son dossier,
@@ -256,7 +256,7 @@ Fonctionnalités :
 - **Boosté par Everything** : les fichiers sont trouvés par [Everything](https://www.voidtools.com) (voidtools,
   licence MIT, crédité en bas de la bulle et dans les paramètres). La notch en emporte une copie portable
   (`Everything\Everything.exe`, 64 bits, non modifiée et signée, avec sa `License.txt`) et la lance hors de vue au
-  démarrage : ni fenêtre, ni icône, ses réglages et son index dans `%LOCALAPPDATA%\MyNotch\Everything` ; elle la ferme
+  démarrage : ni fenêtre, ni icône, ses réglages et son index dans `%LOCALAPPDATA%\Ilot\Everything` ; elle la ferme
   en quittant. Un Everything que vous lancez vous-même est utilisé tel quel. À pleine vitesse (les disques entiers,
   lus dans leur table de fichiers), Everything a besoin de son service : s'il est installé, la copie s'en sert ; sinon
   « Pleine vitesse » dans les paramètres l'installe (une autorisation de Windows, une seule fois), et en attendant elle
@@ -297,7 +297,7 @@ Fonctionnalités :
   partie la plus claire fait lentement le tour. Ces animations ne tournent que pendant l'assistant. Mise
   en forme simple (gras, listes, `code`, blocs de code), un bouton pour copier chaque réponse, « Nouvelle
   conversation » pour repartir de zéro ; Entrée envoie, Échap ferme. « Historique » montre les conversations passées (écrites ou à voix
-  haute, les 100 dernières, gardées sur ce PC dans `%LOCALAPPDATA%MyNotchassistant-history.json`, sans les images) :
+  haute, les 100 dernières, gardées sur ce PC dans `%LOCALAPPDATA%Ilotassistant-history.json`, sans les images) :
   un clic en rouvre une pour la continuer, la corbeille en oublie une, « Tout effacer » toutes. Dans la goutte, la
   lueur de la mascotte s'étend doucement, et une petite boule de lumière de sa couleur se promène en bas à gauche. Paramètres → Assistant : la clé API (vérifiée auprès de Google, gardée par le Gestionnaire
   d'identification de Windows, jamais en clair ; un guide pas à pas pour l'obtenir, ouvert tant qu'il n'y en a pas :
@@ -355,7 +355,7 @@ Fonctionnalités :
 - **Un clic suffit à la garder** : ouverte au survol, elle se referme quand la souris s'en va ; dès qu'on clique dedans
   (un onglet, un bouton, sa bulle, ou le clic qui l'ouvre), elle reste ouverte jusqu'à un clic ailleurs, sans prendre
   le clavier à l'application en cours. Désactivable : Paramètres → Général, « Rester ouverte après un clic ».
-- **Clic droit** : menu « Garder ouverte » / « Mode minimisé » / « Paramètres… » / « Quitter MyNotch ».
+- **Clic droit** : menu « Garder ouverte » / « Mode minimisé » / « Paramètres… » / « Quitter Ilot ».
 - **Au repos, une poignée** : sans rien à afficher (pas de musique ouverte : la pilule serait vide), la notch n'est que
   sa poignée (la petite languette avec sa ligne claire), tout de suite. Avec un morceau en pause (ou rien qui se passe),
   elle se réduit à sa poignée au bout de 3 minutes (réglable de 5 secondes à 5 minutes, ou désactivable : « Se cacher au repos »), et dès le démarrage. La survoler la fait
@@ -377,14 +377,14 @@ Fonctionnalités :
   non les paroles, taille des paroles dans la notch fermée, enregistrement du presse-papier, annonce de
   chaque copie, taille de l'historique, effacement de l'historique avec confirmation (les épingles
   restent). Appliqués immédiatement, enregistrés dans
-  `%LOCALAPPDATA%\MyNotch\settings.json`.
+  `%LOCALAPPDATA%\Ilot\settings.json`.
 - **Français ou anglais** : Paramètres → Général → Langue (« Celle de Windows » par défaut : anglais si Windows n'est
   pas en français). La notch la prend au lancement suivant. Tout est traduit : la notch, ses modules, les paramètres,
   les dates et nombres (« 2.5 GB », « 3 min ago »), et la page du téléphone (`mynotch.local`).
 - **Clic à travers** : hors de la notch, les clics atteignent les fenêtres situées dessous. Cliquer la notch ne
   vole jamais le focus de l'application en cours.
-- **Erreurs** : ce qui plante est noté dans `%LOCALAPPDATA%\MyNotch\errors.log` (256 Ko au plus). Si la notch ne peut pas
-  se construire au démarrage, MyNotch se ferme au lieu de rester sans rien afficher (ce qui bloquerait le lancement
+- **Erreurs** : ce qui plante est noté dans `%LOCALAPPDATA%\Ilot\errors.log` (256 Ko au plus). Si la notch ne peut pas
+  se construire au démarrage, Ilot se ferme au lieu de rester sans rien afficher (ce qui bloquerait le lancement
   suivant, une seule instance étant permise).
 
 ## Lancer
@@ -396,17 +396,17 @@ Prérequis : Windows 10 2004+ ou Windows 11, et le SDK .NET 10 (`winget install 
 Le Windows App SDK est embarqué (*self-contained*) : aucun runtime à installer.
 
 ```powershell
-dotnet run --project src/MyNotch            # x64 par défaut
-dotnet build MyNotch.sln -p:Platform=ARM64  # autre architecture
+dotnet run --project src/Ilot            # x64 par défaut
+dotnet build Ilot.sln -p:Platform=ARM64  # autre architecture
 ```
 
 Dans Visual Studio (2026 recommandé, charge de travail « Développement d'applications WinUI ») : ouvrir
-`MyNotch.sln`, choisir la plateforme puis F5.
+`Ilot.sln`, choisir la plateforme puis F5.
 
 ## Structure
 
 ```
-src/MyNotch/
+src/Ilot/
 ├── App.xaml(.cs)              Racine de composition (DI), instance unique
 ├── Composition/               Moteur de mouvement, sans dépendance à la notch
 │   ├── Spring.cs              Oscillateur amorti résolu analytiquement (réponse / amortissement)
@@ -612,7 +612,7 @@ onglets suivent l'ordre d'enregistrement.
   Les formats `ExcludeClipboardContentFromMonitorProcessing`, `Clipboard Viewer Ignore` et
   `CanIncludeInClipboardHistory = 0`, posés par les gestionnaires de mots de passe, sont respectés. Une image est
   reconnue par l'empreinte SHA-256 de ses pixels (hachée hors du thread UI). Ce que la notch remet dans le
-  presse-papier n'est pas réenregistré. L'image enregistrée va dans `Images\MyNotch` et s'ouvre dans
+  presse-papier n'est pas réenregistré. L'image enregistrée va dans `Images\Ilot` et s'ouvre dans
   l'Explorateur : un sélecteur de fichier s'ouvrirait derrière la fenêtre de la notch, toujours au premier plan.
 - **Recherche de fichiers** : rien n'est réinventé, Everything fait ce qu'il fait mieux que tout. La notch lui parle
   comme son SDK, mais sans sa DLL : une requête `EVERYTHING_IPC_QUERY2` envoyée en `WM_COPYDATA` à sa fenêtre cachée

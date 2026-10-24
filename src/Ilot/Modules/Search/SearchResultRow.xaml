@@ -1,0 +1,85 @@
+<UserControl
+    x:Class="Ilot.Modules.Search.SearchResultRow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Height="50">
+
+    <!--  One result: its icon, its name (what matched brighter) and where it is, and what kind it is.  -->
+    <Grid
+        x:Name="LayoutRoot"
+        Padding="12,0,14,0"
+        Background="Transparent"
+        ColumnSpacing="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="32" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!--  The item's own icon, or a glyph on a tile of the kind's colour.  -->
+        <Grid Width="32" Height="32" VerticalAlignment="Center">
+            <Border x:Name="Tile" CornerRadius="9" />
+            <FontIcon
+                x:Name="GlyphIcon"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontSize="16"
+                Foreground="White" />
+            <Image
+                x:Name="IconImage"
+                Width="32"
+                Height="32"
+                Stretch="Uniform" />
+        </Grid>
+
+        <StackPanel
+            Grid.Column="1"
+            VerticalAlignment="Center"
+            Spacing="1">
+            <TextBlock
+                x:Name="TitleText"
+                FontFamily="Segoe UI Variable Text"
+                FontSize="14"
+                Foreground="#B8FFFFFF"
+                MaxLines="1"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="NoWrap" />
+            <TextBlock
+                x:Name="SubtitleText"
+                FontFamily="Segoe UI Variable Text"
+                FontSize="11.5"
+                Foreground="#73FFFFFF"
+                MaxLines="1"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="NoWrap" />
+        </StackPanel>
+
+        <StackPanel
+            Grid.Column="2"
+            VerticalAlignment="Center"
+            Orientation="Horizontal"
+            Spacing="10">
+            <TextBlock
+                x:Name="KindText"
+                VerticalAlignment="Center"
+                FontFamily="Segoe UI Variable Text"
+                FontSize="11"
+                Foreground="#59FFFFFF" />
+            <!--  Enter opens it: shown on the line chosen.  -->
+            <Border
+                x:Name="EnterKey"
+                Height="20"
+                Padding="7,0"
+                VerticalAlignment="Center"
+                Background="#24FFFFFF"
+                CornerRadius="6"
+                Opacity="0">
+                <FontIcon
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    Foreground="#D9FFFFFF"
+                    Glyph="&#xE751;" />
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

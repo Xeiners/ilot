@@ -1,0 +1,228 @@
+<UserControl
+    x:Class="Ilot.Modules.Media.MediaView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Ilot.Controls"
+    xmlns:lyrics="using:Ilot.Modules.Media.Lyrics"
+    xmlns:media="using:Ilot.Modules.Media">
+
+    <!--
+        One layout only, the expanded one (660 x 158 by default, tab bar included): the player on the left, the lyrics (or a large
+        visualizer when the track has none) on the right. The compact look is not a second layout: the artwork, the
+        small visualizer and the sung line are carried onto the pill by expressions bound to the notch morph, so
+        they glide between both places as the notch opens and closes (see MediaView.xaml.cs).
+    -->
+    <Grid x:Name="LayoutRoot">
+
+        <!--  Ambient light tinted with the colour of the cover, drawn by the compositor.  -->
+        <Grid x:Name="GlowHost" IsHitTestVisible="False" />
+
+        <!--  Progress line of the collapsed pill, between the artwork and the visualizer (composition).  -->
+        <Grid x:Name="CompactProgressHost" IsHitTestVisible="False" />
+
+        <!--  Collapsed pill with lyrics: the line being sung, between the artwork and the visualizer.  -->
+        <!--  Width and position are set from the compact geometry in code.  -->
+        <lyrics:LyricsPanel
+            x:Name="CompactLyrics"
+            Height="20"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            LineFontSize="14"
+            LineSpacing="18"
+            ShowsNextLine="False" />
+
+        <!--  Open content, under the tab bar. It slides and fades with the tab selection; the artwork and the  -->
+        <!--  small visualizer ride along, so they are inside too, and come home to the pill as the notch closes.  -->
+        <Grid x:Name="OpenContent">
+
+            <!--  ── Left column: the player ──  -->
+            <Grid
+                x:Name="PlayerColumn"
+                Width="430"
+                HorizontalAlignment="Left">
+
+                <!--  Artwork, shared by the compact and the expanded layout.  -->
+                <Grid
+                    x:Name="ArtworkHost"
+                    Width="72"
+                    Height="72"
+                    Margin="20,20,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top">
+                    <Grid x:Name="ArtworkSurface" Background="{StaticResource NotchPlaceholderBrush}">
+                        <FontIcon FontSize="24" Foreground="{StaticResource NotchSecondaryTextBrush}" Glyph="&#xEC4F;" />
+                        <Image x:Name="ArtworkBack" Stretch="UniformToFill" />
+                        <Image x:Name="ArtworkFront" Stretch="UniformToFill" />
+                    </Grid>
+                </Grid>
+
+                <!--  Title and artist.  -->
+                <Grid x:Name="Details" Margin="106,24,148,0" VerticalAlignment="Top">
+                    <StackPanel x:Name="DetailsContent">
+                        <TextBlock
+                            x:Name="TitleText"
+                            Margin="0,0,38,0"
+                            Style="{StaticResource NotchTitleTextStyle}"
+                            Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+                        <TextBlock Style="{StaticResource NotchSubtitleTextStyle}" Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+                    </StackPanel>
+                </Grid>
+
+                <!--  Transport controls.  -->
+                <StackPanel
+                    x:Name="TransportControls"
+                    Margin="0,20,16,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Orientation="Horizontal"
+                    Spacing="2">
+                    <controls:MotionButton
+                        Width="36"
+                        Height="36"
+                        AutomationProperties.Name="Piste précédente"
+                        Command="{x:Bind ViewModel.PreviousCommand}">
+                        <Path
+                            Width="20"
+                            Height="20"
+                            Data="M21.5,6 L12.5,12 L21.5,18 Z M11.5,6 L2.5,12 L11.5,18 Z"
+                            Style="{StaticResource NotchGlyphStyle}" />
+                    </controls:MotionButton>
+                    <controls:MotionButton
+                        Width="44"
+                        Height="44"
+                        AutomationProperties.Name="Lecture ou pause"
+                        Command="{x:Bind ViewModel.TogglePlayPauseCommand}">
+                        <Grid Width="20" Height="20">
+                            <Path
+                                x:Name="PlayGlyph"
+                                Width="20"
+                                Height="20"
+                                Data="M7,4.8 L19.2,12 L7,19.2 Z"
+                                Style="{StaticResource NotchGlyphStyle}" />
+                            <Path
+                                x:Name="PauseGlyph"
+                                Width="20"
+                                Height="20"
+                                Data="M6.5,4.5 H9.7 V19.5 H6.5 Z M14.3,4.5 H17.5 V19.5 H14.3 Z"
+                                Style="{StaticResource NotchGlyphStyle}" />
+                        </Grid>
+                    </controls:MotionButton>
+                    <controls:MotionButton
+                        Width="36"
+                        Height="36"
+                        AutomationProperties.Name="Piste suivante"
+                        Command="{x:Bind ViewModel.NextCommand}">
+                        <Path
+                            Width="20"
+                            Height="20"
+                            Data="M2.5,6 L11.5,12 L2.5,18 Z M12.5,6 L21.5,12 L12.5,18 Z"
+                            Style="{StaticResource NotchGlyphStyle}" />
+                    </controls:MotionButton>
+                </StackPanel>
+
+                <!--  Elapsed time, scrubber, remaining time.  -->
+                <Grid
+                    x:Name="TimelineRow"
+                    Height="16"
+                    Margin="106,0,18,20"
+                    VerticalAlignment="Bottom"
+                    ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="ElapsedColumn" Width="28" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="RemainingColumn" Width="32" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="ElapsedText"
+                        Style="{StaticResource NotchTimeTextStyle}"
+                        Text="0:00"
+                        TextAlignment="Right" />
+                    <controls:Scrubber
+                        x:Name="TimelineScrubber"
+                        Grid.Column="1"
+                        AutomationProperties.Name="Position de lecture"
+                        IsEnabled="{x:Bind ViewModel.CanSeek, Mode=OneWay}" />
+                    <TextBlock
+                        x:Name="RemainingText"
+                        Grid.Column="2"
+                        Style="{StaticResource NotchTimeTextStyle}"
+                        Text="−0:00" />
+                </Grid>
+            </Grid>
+
+            <!--  ── Right column: lyrics, or a large live visualizer when the track has none ──  -->
+            <Border
+                x:Name="ColumnDivider"
+                Width="1"
+                Margin="430,24,0,24"
+                HorizontalAlignment="Left"
+                Background="{StaticResource NotchTrackBrush}"
+                IsHitTestVisible="False" />
+
+            <Grid
+                x:Name="SideColumn"
+                Margin="446,0,20,0"
+                IsHitTestVisible="False">
+                <!--  Previous line above, sung line in the middle, next line below.  -->
+                <lyrics:LyricsPanel
+                    x:Name="LyricsLines"
+                    Height="22"
+                    Margin="0,51,0,0"
+                    VerticalAlignment="Top"
+                    LineFontSize="16"
+                    LineSpacing="26"
+                    ShowsPreviousLine="True" />
+
+                <!--  One bar per frequency band (created in code).  -->
+                <StackPanel
+                    x:Name="Spectrum"
+                    Height="56"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="4" />
+            </Grid>
+
+            <!--  Lyrics on / off, top right: only there when the track has synced lyrics.  -->
+            <controls:MotionButton
+                x:Name="LyricsButton"
+                Width="26"
+                Height="26"
+                Margin="0,1,12,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                AutomationProperties.Name="Afficher ou masquer les paroles"
+                Command="{x:Bind Lyrics.ToggleCommand}"
+                Visibility="{x:Bind Lyrics.IsAvailable, Mode=OneWay}">
+                <Path
+                    x:Name="LyricsGlyph"
+                    Width="13"
+                    Height="13"
+                    Data="M5,4 H19 A2,2 0 0 1 21,6 V15 A2,2 0 0 1 19,17 H11 L7,20.5 V17 H5 A2,2 0 0 1 3,15 V6 A2,2 0 0 1 5,4 Z"
+                    Style="{StaticResource NotchGlyphStyle}" />
+            </controls:MotionButton>
+
+            <!--  Small live visualizer (created in code): on the pill when compact, at the end of the title line  -->
+            <!--  when expanded.  -->
+            <StackPanel
+                x:Name="Equalizer"
+                Height="16"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Orientation="Horizontal"
+                Spacing="2" />
+        </Grid>
+
+        <!--  Shown while the notch is pinned open (double-click).  -->
+        <Border
+            x:Name="PinIndicator"
+            Width="22"
+            Height="3"
+            Margin="0,0,0,7"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            CornerRadius="1.5"
+            IsHitTestVisible="False" />
+    </Grid>
+</UserControl>

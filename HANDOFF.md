@@ -1,6 +1,6 @@
-# MyNotch — passation
+# Ilot — passation
 
-Ce document s'adresse au développeur (ou à l'agent IA) qui reprend MyNotch. Il complète le
+Ce document s'adresse au développeur (ou à l'agent IA) qui reprend Ilot. Il complète le
 [README](README.md), qui décrit en détail chaque fonctionnalité, la structure des fichiers et l'animation. Ici :
 comment travailler sur le projet, les règles à respecter, l'état réel des modules, et les pièges déjà rencontrés.
 
@@ -10,7 +10,7 @@ Dernière mise à jour : 21 octobre 2026.
 
 ## 1. En bref
 
-MyNotch est une « Dynamic Island » pour Windows 11 : une pilule noire en haut au centre de l'écran, qui s'efface
+Ilot est une « Dynamic Island » pour Windows 11 : une pilule noire en haut au centre de l'écran, qui s'efface
 sous la souris (elle rentre dans une petite poignée et laisse passer les clics) et s'ouvre sur cinq onglets
 quand on survole cette poignée. `Ctrl + Q`, partout, en fait une barre de recherche (module sans onglet).
 
@@ -36,24 +36,24 @@ Environ 19 000 lignes de C#.
 ## 2. Lancer, compiler, déboguer
 
 ```powershell
-dotnet run --project src/MyNotch      # lance (x64 par défaut)
+dotnet run --project src/Ilot      # lance (x64 par défaut)
 ```
 
-- **Une seule instance** est permise (mutex `Local\MyNotch.SingleInstance`) : un second lancement se ferme
-  aussitôt, sans message. Pour relancer : clic droit sur la notch → « Quitter MyNotch », puis `dotnet run`.
+- **Une seule instance** est permise (mutex `Local\Ilot.SingleInstance`) : un second lancement se ferme
+  aussitôt, sans message. Pour relancer : clic droit sur la notch → « Quitter Ilot », puis `dotnet run`.
 - `dotnet run` n'affiche rien d'autre que « Utilisation des paramètres de lancement… » : c'est normal,
   l'application est une `WinExe`.
-- **Compiler pendant que MyNotch tourne** : la copie de l'exe échoue (fichier verrouillé). Compiler ailleurs
+- **Compiler pendant que Ilot tourne** : la copie de l'exe échoue (fichier verrouillé). Compiler ailleurs
   pour vérifier le code sans fermer l'appli :
   ```powershell
-  dotnet build src/MyNotch -p:OutDir=C:/temp/mynotch-out/
+  dotnet build src/Ilot -p:OutDir=C:/temp/mynotch-out/
   ```
-- **Erreurs** : toute exception non gérée est notée dans `%LOCALAPPDATA%\MyNotch\errors.log` (256 Ko au plus).
+- **Erreurs** : toute exception non gérée est notée dans `%LOCALAPPDATA%\Ilot\errors.log` (256 Ko au plus).
   Si la notch ne peut pas se construire au démarrage, l'application se ferme au lieu de rester en processus
   fantôme sans fenêtre. **Premier réflexe quand « rien ne s'affiche » : lire ce fichier.**
-- Vérifier qu'une fenêtre existe : `tasklist /FI "IMAGENAME eq MyNotch.exe"`, puis, si besoin, énumérer les
-  fenêtres du processus (une fenêtre « MyNotch » visible doit exister).
-- **Tester qu'une compilation démarre sans fermer la notch du propriétaire** : `MYNOTCH_INSTANCE=test` (variable
+- Vérifier qu'une fenêtre existe : `tasklist /FI "IMAGENAME eq Ilot.exe"`, puis, si besoin, énumérer les
+  fenêtres du processus (une fenêtre « Ilot » visible doit exister).
+- **Tester qu'une compilation démarre sans fermer la notch du propriétaire** : `ILOT_INSTANCE=test` (variable
   d'environnement) lance une seconde copie à côté (autre mutex). Les deux se superposent à l'écran : quelques
   secondes, lire `errors.log`, puis tuer la copie, et fermer l'Everything qu'elle a lancé
   (`<dossier de sortie>\Everything\Everything.exe -exit`).
@@ -211,7 +211,7 @@ lit le cours… ») ; « Gemini » reste pour la clé et le service (paramètres
 - **Import** : « Importer un cours » (`Microsoft.Windows.Storage.Pickers.FileOpenPicker`, fenêtre de la notch via
   `XamlRoot.ContentIslandEnvironment.AppWindowId`, notch tenue ouverte) ou un dépôt sur la notch **ouverte sur cet
   onglet** : `NotchView.FindDropTarget` préfère maintenant la cible du module affiché (sinon la première qui accepte : la
-  Drop Zone). `StudyStore.CreateAsync` copie le document dans `%LOCALAPPDATA%\MyNotch\Study\<id>.<ext>`.
+  Drop Zone). `StudyStore.CreateAsync` copie le document dans `%LOCALAPPDATA%\Ilot\Study\<id>.<ext>`.
 - **Documents** (`StudyDocument`) : PDF et images envoyés tels quels (inline jusqu'à 14 Mo, sinon File API :
   `GeminiClient.UploadAsync`, upload résumable, gardé 46 h en mémoire), pages du PDF par `Windows.Data.Pdf` ; .docx et
   .pptx lus ici (zip + XML : paragraphes ; diapositives dans l'ordre numérique, « --- Diapositive N --- », notes de
@@ -527,7 +527,7 @@ cartes et questions sortent toujours la pilule le temps qu'il faut (comme au rep
 
 ### Presse-papier — stable
 `Modules/Clipboard/`. `WM_CLIPBOARDUPDATE` via une fenêtre message-only, historique dans
-`%LOCALAPPDATA%\MyNotch\clipboard.json` (+ images dans `clipboard\`), raccourci Windows + V par hook clavier
+`%LOCALAPPDATA%\Ilot\clipboard.json` (+ images dans `clipboard\`), raccourci Windows + V par hook clavier
 bas niveau.
 - **Aperçu qui retouche** (nouveau, jamais vu à l'écran) : `ClipboardPreview` dans une bulle (`ShowBubble`, taille
   de l'image ajustée dans 900 × 520, redimensionnable, min. 480 × 240 ; texte 660 × 360), ouverte par l'œil d'une tuile
@@ -539,7 +539,7 @@ bas niveau.
   32 bits des pixels (125 ms en 4K, hors fil UI) ; affichage par `WriteableBitmap` dans un
   `Viewbox` (coordonnées du pointeur = pixels de l'image ; le trait en cours est une `Polyline` remplacée une fois
   rastérisé). 12 étapes d'annulation (images entières). Copier : inchangé, c'est la copie elle-même (pas de doublon) ;
-  retouché, un PNG dans `%TEMP%\MyNotch\Edited` (les anciens effacés) écrit dans le presse-papier, et l'historique
+  retouché, un PNG dans `%TEMP%\Ilot\Edited` (les anciens effacés) écrit dans le presse-papier, et l'historique
   l'enregistre comme une nouvelle copie. Texte : `CopyEditedTextAsync`. Testé sans écran (`scratchpad/edittest`).
 
 ### Drop Zone — stable, partage local récent
@@ -561,7 +561,7 @@ bas niveau.
   - `MdnsResponder` : publie `mynotch.local` (RFC 6762, maison). Testé : Windows le résout. **Non testé sur de
     vrais téléphones Android / iPhone.**
   - `LocalPage` : page web autonome servie au téléphone ou autre PC (HTML/CSS/JS en ligne) sous forme de chat en direct et zone de dépôt (boutons Coller, Photo / Image, Fichiers, `Ctrl + V` global, glisser-déposer, long-polling `/chat/events?since=`).
-  - **Chat et collage en direct** : bulle détachée redimensionnable sous la notch (`ShowBubble`, dimensions dans `LocalChatWidth` / `LocalChatHeight`), cartes `LocalMessageCard` avec animations implicites sur le compositeur. Les textes, liens et images collées (`POST /chat/text`, `POST /chat/image`, ou `Ctrl + V` / bouton « Coller » côté PC) s'affichent directement dans le fil avec aperçu et actions en 1 clic (Copier, Ouvrir, Enregistrer). Les images temporaires du chat vivent dans `%LOCALAPPDATA%\MyNotch\LocalChat\` et sont nettoyées à la fin du partage.
+  - **Chat et collage en direct** : bulle détachée redimensionnable sous la notch (`ShowBubble`, dimensions dans `LocalChatWidth` / `LocalChatHeight`), cartes `LocalMessageCard` avec animations implicites sur le compositeur. Les textes, liens et images collées (`POST /chat/text`, `POST /chat/image`, ou `Ctrl + V` / bouton « Coller » côté PC) s'affichent directement dans le fil avec aperçu et actions en 1 clic (Copier, Ouvrir, Enregistrer). Les images temporaires du chat vivent dans `%LOCALAPPDATA%\Ilot\LocalChat\` et sont nettoyées à la fin du partage.
   - Fichiers reçus (`POST /upload`) : écrits cachés (`*.part`) dans Téléchargements, affichés dans le chat et soumis à **Accepter / Refuser** (`IncomingFile`, `IncomingFileCard`, `NotchContext.Ask`, ou directement depuis la carte dans la bulle de chat). Refusé ou jamais décidé à la fermeture : supprimé. La page suit l'état en direct via `/chat/events` et `decision/{id}`.
 
 ### Code — stable
@@ -582,7 +582,7 @@ Les résultats qui arrivent encore pour la recherche d'avant sont ignorés tant 
   (appelé deux fois par seconde, seulement quand il tourne). La grande pause après `SessionsBeforeLongBreak` focus finis
   (`Done`, remis à 0 après elle) ; un focus passé (`Skip`) ne compte pas ; `AutoStartBreaks` / `AutoStartFocus`.
   `Use(plan)` : une phase pas commencée prend la nouvelle durée tout de suite, une en cours garde la sienne.
-- **`PomodoroStats`** : `%LOCALAPPDATA%\MyNotch\pomodoro.json`, sessions et minutes par jour (60 jours), écrit à chaque
+- **`PomodoroStats`** : `%LOCALAPPDATA%\Ilot\pomodoro.json`, sessions et minutes par jour (60 jours), écrit à chaque
   focus fini (hors fil UI, remplacé d'un coup).
 - **`PomodoroView`** : l'anneau (composition : lueur radiale fixe, piste, arc `TrimEnd` = part restante ; en marche, une
   seule animation linéaire jusqu'à la fin, rien image par image ; couleur qui fond d'une phase à l'autre ; rebond `r.Pop`
@@ -625,7 +625,7 @@ Les résultats qui arrivent encore pour la recherche d'avant sont ignorés tant 
 
 ### Notes — récent, à éprouver
 `Modules/Notes/`.
-- **Stockage** : `NotesService`, base `%LOCALAPPDATA%\MyNotch\notes.db`, table
+- **Stockage** : `NotesService`, base `%LOCALAPPDATA%\Ilot\notes.db`, table
   `Notes(id, title, content, plain, created_at, updated_at)`.
   - `content` = **RTF** ; `plain` = texte brut pour les cartes, la recherche et les compteurs.
   - Lecture au premier affichage de l'onglet. Écriture 250 ms (capture) + 300 ms (service) après la dernière
@@ -839,7 +839,7 @@ lancée en administrateur ne laisse pas un crochet clavier ordinaire voir ses to
 **Les raccourcis s'effacent en plein écran** (nouveau, jamais vu à l'écran) : `GlobalShortcut.Take` laisse passer la
 touche (ni prise, ni action) quand `FullscreenWatcher.ForegroundIsFullscreen()` : l'app au premier plan remplit son
 propre écran (`MonitorFromWindow` + `GetMonitorInfo`, n'importe lequel, pas seulement celui de la notch ; mêmes règles
-que la notch cachée : fenêtre maximisée avec barre de titre, bureau, barre des tâches et MyNotch exclus). Lu seulement
+que la notch cachée : fenêtre maximisée avec barre de titre, bureau, barre des tâches et Ilot exclus). Lu seulement
 quand la combinaison correspond (rien sur les autres touches). L'enregistrement d'un raccourci n'est pas concerné.
 
 ### Assistant — nouveau, jamais vu à l'écran
@@ -900,7 +900,7 @@ sur la mascotte (`MascotView.Clicked` → `INotchModule.OpenFromMascot`) ou `Ass
   le focus), la question limitée à 2 lignes pendant ce temps pour que la barre tienne. Envoyées en `inlineData` base64
   avec le texte (`GeminiTurn.Images`, `GeminiClient.Parts`), gardées dans l'historique ; montrées au-dessus de la
   question dans la goutte (92 px de haut).
-- **Historique** (`AssistantHistory`, `AssistantHistoryView`) : `%LOCALAPPDATA%MyNotchassistant-history.json`, les 100
+- **Historique** (`AssistantHistory`, `AssistantHistoryView`) : `%LOCALAPPDATA%Ilotassistant-history.json`, les 100
   dernières, la plus récente d'abord ; écrit 800 ms après le dernier changement, hors du fil UI, fichier temporaire puis
   remplacé d'un coup ; un fichier illisible donne un historique vide. `AssistantConversation.Remember` garde la
   conversation (son `Guid`, son titre = la première question, ses messages écrits, sans erreurs, le nombre d'images mais
@@ -1056,9 +1056,18 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 
 ## 7. Pièges déjà rencontrés
 
+- **Renommée MyNotch → Ilot** (25 octobre 2026) : projet `src/Ilot` (`Ilot.csproj`, `Ilot.sln`, `installer/Ilot.iss`,
+  `Ilot.exe`), espaces de noms `Ilot.*`, mutex `LocalIlot.SingleInstance`. Les données passent toutes par
+  `AppData.Folder` (`%LOCALAPPDATA%Ilot`) : au premier lancement, `%LOCALAPPDATA%MyNotch` y est déplacé d'un bloc
+  (`Directory.Move`) ; en cas d'échec (MyNotch encore lancé), l'ancien dossier sert pour ce lancement et le suivant
+  réessaie. L'entrée « Lancer avec Windows » `MyNotch` devient `Ilot` (`StartupLaunch.Migrate`). La clé Gemini garde
+  son nom `MyNotch/Gemini` dans le coffre de Windows (rien à migrer). L'identifiant de l'installateur (`AppId`) ne
+  change pas. Le dossier du dépôt reste `C:devmynotch`. Les tests hors interface ont leur propre `AppData` (dossier
+  temporaire) : le vrai déplacerait les données de l'utilisateur.
+
 - **« Quitter » qui laisse un processus** : `Application.Exit()` fermait la notch, mais une autre fenêtre de l'appli
   restée ouverte et cachée (les paroles de la barre des tâches, après `AppWindow.Hide`) gardait le processus en vie,
-  invisible : il tenait l'instance unique et verrouillait `MyNotch.exe` (`dotnet run` : MSB3027). `App.Quit` : à la
+  invisible : il tenait l'instance unique et verrouillait `Ilot.exe` (`dotnet run` : MSB3027). `App.Quit` : à la
   fermeture de la notch, `Shutdown` (services libérés, donc enregistrés) puis `Environment.Exit(0)`.
 
 - **Ouvert : texte d'une activité invisible sur la notch fermée** (préparation d'un cours, musique en cours). La notch
@@ -1126,17 +1135,17 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 
 | Emplacement | Contenu |
 |---|---|
-| `%LOCALAPPDATA%\MyNotch\settings.json` | Réglages (`AppSettings`, écrits en différé ; `Welcomed` : l'accueil du premier lancement est fait) |
-| `%LOCALAPPDATA%\MyNotch\clipboard.json`, `clipboard\` | Historique du presse-papier et images |
-| `%LOCALAPPDATA%\MyNotch\UploadsQueue\` | Envois en attente (reprennent au lancement) |
-| `%LOCALAPPDATA%\MyNotch\LocalChat\` | Images temporaires du chat Wi-Fi local (supprimées à l'arrêt du partage) |
-| `%LOCALAPPDATA%\MyNotch\notes.db` | Notes (SQLite, WAL) |
-| `%LOCALAPPDATA%\MyNotch\study.db`, `Study\` | Révisions : cours, fiches, cartes et leur apprentissage (SQLite, WAL) ; copies des documents |
-| `%LOCALAPPDATA%\MyNotch\search.json` | Ce qui a été ouvert depuis la recherche (nombre, dernière fois) |
-| `%LOCALAPPDATA%\MyNotch\Everything\` | Réglages (`Everything.ini`, `mode.txt`) et index (`Everything.db`, ~110 Mo) de la copie d'Everything |
-| `%LOCALAPPDATA%\MyNotch\errors.log` | Journal des erreurs |
+| `%LOCALAPPDATA%\Ilot\settings.json` | Réglages (`AppSettings`, écrits en différé ; `Welcomed` : l'accueil du premier lancement est fait) |
+| `%LOCALAPPDATA%\Ilot\clipboard.json`, `clipboard\` | Historique du presse-papier et images |
+| `%LOCALAPPDATA%\Ilot\UploadsQueue\` | Envois en attente (reprennent au lancement) |
+| `%LOCALAPPDATA%\Ilot\LocalChat\` | Images temporaires du chat Wi-Fi local (supprimées à l'arrêt du partage) |
+| `%LOCALAPPDATA%\Ilot\notes.db` | Notes (SQLite, WAL) |
+| `%LOCALAPPDATA%\Ilot\study.db`, `Study\` | Révisions : cours, fiches, cartes et leur apprentissage (SQLite, WAL) ; copies des documents |
+| `%LOCALAPPDATA%\Ilot\search.json` | Ce qui a été ouvert depuis la recherche (nombre, dernière fois) |
+| `%LOCALAPPDATA%\Ilot\Everything\` | Réglages (`Everything.ini`, `mode.txt`) et index (`Everything.db`, ~110 Mo) de la copie d'Everything |
+| `%LOCALAPPDATA%\Ilot\errors.log` | Journal des erreurs |
 | `%USERPROFILE%\Downloads` | Fichiers reçus du téléphone (cachés `*.part` tant que non acceptés) |
-| `Images\MyNotch` | Images enregistrées depuis le presse-papier |
+| `Images\Ilot` | Images enregistrées depuis le presse-papier |
 
 ---
 
@@ -1154,10 +1163,10 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 
 ## 10. Prompt de reprise (à donner à un agent IA)
 
-> Tu reprends **MyNotch**, une « Dynamic Island » pour Windows 11 en C# / .NET 10 / WinUI 3, dans
+> Tu reprends **Ilot**, une « Dynamic Island » pour Windows 11 en C# / .NET 10 / WinUI 3, dans
 > `C:\dev\mynotch`. Avant toute modification, lis `HANDOFF.md` (règles, état, pièges) puis `README.md`
-> (fonctionnalités et structure), et parcours `src/MyNotch/Notch/NotchContext.cs` (l'API des modules) et
-> `src/MyNotch/App.xaml.cs` (enregistrement des modules).
+> (fonctionnalités et structure), et parcours `src/Ilot/Notch/NotchContext.cs` (l'API des modules) et
+> `src/Ilot/App.xaml.cs` (enregistrement des modules).
 >
 > Règles impératives :
 > - Animations sur le compositeur uniquement (ressorts `SpringChannel` / `Motion.cs`, expressions liées à `n`),
@@ -1171,10 +1180,10 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 > - Tenir le README à jour.
 >
 > Méthode : le propriétaire est le testeur et te parle en français. Implémente, compile pour vérifier (0
-> avertissement, 0 erreur ; si MyNotch tourne, compile avec `-p:OutDir=` vers un dossier temporaire), teste
+> avertissement, 0 erreur ; si Ilot tourne, compile avec `-p:OutDir=` vers un dossier temporaire), teste
 > sans interface ce qui peut l'être, puis donne-lui des étapes de test courtes : « clic droit sur la notch →
-> Quitter, puis `dotnet run --project src/MyNotch` ». Ne lui demande pas de captures d'écran à répétition. Si
-> « rien ne s'affiche », lis d'abord `%LOCALAPPDATA%\MyNotch\errors.log`.
+> Quitter, puis `dotnet run --project src/Ilot` ». Ne lui demande pas de captures d'écran à répétition. Si
+> « rien ne s'affiche », lis d'abord `%LOCALAPPDATA%\Ilot\errors.log`.
 >
 > Commence par me résumer en quelques lignes ce que tu as compris du projet et de son état, puis attends ma
 > demande.

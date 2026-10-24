@@ -1,0 +1,191 @@
+<UserControl
+    x:Class="Ilot.Notch.NotchView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Ilot.Controls"
+    xmlns:mascot="using:Ilot.Mascot"
+    xmlns:quick="using:Ilot.Quick"
+    HorizontalAlignment="Left"
+    VerticalAlignment="Top"
+    RequestedTheme="Dark">
+
+    <!--
+        The window is a transparent canvas a bit larger than the expanded notch. Only the area published through
+        InputBoundsChanged receives the mouse: everything else clicks through to the desktop.
+    -->
+    <Grid
+        x:Name="Root"
+        AllowDrop="True"
+        Background="Transparent"
+        DragEnter="OnDragOver"
+        DragLeave="OnDragLeave"
+        DragOver="OnDragOver"
+        Drop="OnDrop">
+        <Grid.ContextFlyout>
+            <MenuFlyout
+                x:Name="NotchMenu"
+                Closed="OnMenuClosed"
+                Opening="OnMenuOpening"
+                ShouldConstrainToRootBounds="False">
+                <ToggleMenuFlyoutItem x:Name="PinMenuItem" Click="OnPinMenuItemClick" Text="Garder ouverte">
+                    <ToggleMenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE718;" />
+                    </ToggleMenuFlyoutItem.Icon>
+                </ToggleMenuFlyoutItem>
+                <ToggleMenuFlyoutItem x:Name="MinimizedMenuItem" Click="OnMinimizedMenuItemClick" Text="Mode minimisé">
+                    <ToggleMenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE921;" />
+                    </ToggleMenuFlyoutItem.Icon>
+                </ToggleMenuFlyoutItem>
+                <MenuFlyoutItem Click="OnSettingsMenuItemClick" Text="Paramètres…">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator />
+                <MenuFlyoutItem Click="OnQuitMenuItemClick" Text="Quitter Ilot">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE7E8;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuFlyout>
+        </Grid.ContextFlyout>
+
+        <!-- Body of the notch, drawn by the compositor (see NotchSurface). -->
+        <Grid x:Name="SurfaceHost" IsHitTestVisible="False" />
+
+        <!-- Module content: laid out at the expanded size, clipped to the morphing shape. -->
+        <Grid x:Name="ContentLayer">
+            <!-- Every module view, stacked: the tab selection decides which one shows (and takes the mouse). -->
+            <Grid x:Name="ModuleHost" HorizontalAlignment="Center" VerticalAlignment="Top" />
+
+            <!-- Tabs along the top left edge of the open notch (the right end is left to the modules' own buttons); the
+                 selection pill is drawn by the compositor. -->
+            <Grid
+                x:Name="TabBar"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False">
+                <Grid x:Name="TabIndicatorHost" IsHitTestVisible="False" />
+                <StackPanel x:Name="TabStrip" Orientation="Horizontal" />
+            </Grid>
+
+            <!-- At the right end of the closed pill: an announcement ("Texte copié"…) or a live activity (an upload…). -->
+            <StackPanel
+                x:Name="Toast"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Orientation="Horizontal"
+                Spacing="7">
+                <!--  Glyph, ringed by the progress of a live activity (drawn by the compositor).  -->
+                <Grid
+                    x:Name="ToastBadge"
+                    Width="18"
+                    Height="18"
+                    VerticalAlignment="Center">
+                    <Grid x:Name="ToastRing" />
+                    <FontIcon
+                        x:Name="ToastGlyph"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="13"
+                        Foreground="{StaticResource NotchPrimaryTextBrush}" />
+                </Grid>
+                <TextBlock
+                    x:Name="ToastText"
+                    Typography.NumeralAlignment="Tabular"
+                    MaxLines="1"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap"
+                    VerticalAlignment="Center"
+                    FontFamily="Segoe UI Variable Text"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    Foreground="{StaticResource NotchPrimaryTextBrush}" />
+            </StackPanel>
+
+            <!-- A level that changed (the volume), for a moment on the closed pill: its glyph, a track, and the mascot as its
+                 cursor (see ShowLevel). -->
+            <Grid x:Name="GaugeLayer" IsHitTestVisible="False">
+                <Grid x:Name="GaugeTrackHost" />
+                <FontIcon
+                    x:Name="GaugeGlyph"
+                    Width="18"
+                    Height="18"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    FontSize="15"
+                    Foreground="{StaticResource NotchPrimaryTextBrush}" />
+            </Grid>
+
+            <!-- A moment's card (a device connected…): the closed pill grows down to hold it, under its top row. -->
+            <Border
+                x:Name="PresentationHost"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False" />
+        </Grid>
+
+        <!-- The mascot, above the content and not clipped to the notch: laid out at its place in the open notch (its own
+             little notch, on the right), carried to the pill's right end (or its nest) by expressions (see BindMascot). -->
+        <mascot:MascotView
+            x:Name="Buddy"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top" />
+
+        <!-- While the assistant shows (the mascot is in its drop), the mascot's pod holds the way back to the tabs: laid out
+             at the window's left, carried to the pod by expressions (see BindPodBack). -->
+        <Grid
+            x:Name="PodBackHost"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top">
+            <controls:MotionButton
+                x:Name="PodBack"
+                Padding="0"
+                MinWidth="0"
+                AutomationProperties.Name="Retour aux onglets"
+                Background="Transparent"
+                Click="OnPodBackClick"
+                IsHitTestVisible="False"
+                Style="{StaticResource NotchPillButtonStyle}"
+                ToolTipService.ToolTip="Retour aux onglets">
+                <FontIcon FontSize="14" Glyph="&#xE72B;" />
+            </controls:MotionButton>
+        </Grid>
+
+        <!-- The quick controls, in their little notches left of the open one (volume above, brightness below): laid out at
+             their open place, carried into the pill's left end by expressions when closed (see BindQuick). -->
+        <quick:QuickBubble
+            x:Name="VolumeBubble"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top" />
+        <quick:QuickBubble
+            x:Name="BrightnessBubble"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top" />
+
+        <!-- The volume mixer, left of the quick controls (a right click on the volume, see BindMixer). -->
+        <quick:MixerPanel
+            x:Name="Mixer"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="Collapsed" />
+
+        <!-- A bubble hanging under the open notch (the note sheet…), its content clipped to the drop-like shape. -->
+        <Grid x:Name="BubbleLayer" IsHitTestVisible="False">
+            <Grid
+                x:Name="BubbleHost"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top">
+                <Border x:Name="BubbleContent" />
+                <!-- Its bottom corners, to pull it larger or smaller (when the module lets it be resized). -->
+                <controls:ResizeGrip x:Name="LeftGrip" IsLeft="True" Visibility="Collapsed" />
+                <controls:ResizeGrip x:Name="RightGrip" Visibility="Collapsed" />
+            </Grid>
+        </Grid>
+
+        <!-- The tour's ring, round what a step shows (see StartTour): drawn by the compositor, never in the way. -->
+        <Grid x:Name="TourLayer" IsHitTestVisible="False" />
+    </Grid>
+</UserControl>

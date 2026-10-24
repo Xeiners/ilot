@@ -1,10 +1,10 @@
 <#
-  Builds MyNotch's installer: publishes the app (Release, x64, self-contained: nothing else needed on the PC), then
-  compiles installer\MyNotch.iss with Inno Setup 6.
+  Builds Ilot's installer: publishes the app (Release, x64, self-contained: nothing else needed on the PC), then
+  compiles installer\Ilot.iss with Inno Setup 6.
 
     powershell -ExecutionPolicy Bypass -File installer\build.ps1
 
-  Result: artifacts\MyNotch-Setup-<version>.exe (the version comes from Directory.Build.props).
+  Result: artifacts\Ilot-Setup-<version>.exe (the version comes from Directory.Build.props).
   Inno Setup, once: winget install -e --id JRSoftware.InnoSetup
 #>
 param([string] $Version)
@@ -21,8 +21,8 @@ if (Test-Path $publish) {
     Remove-Item $publish -Recurse -Force
 }
 
-Write-Host "Publication de MyNotch $Version…"
-dotnet publish (Join-Path $root 'src\MyNotch\MyNotch.csproj') -c Release -r win-x64 -p:Platform=x64 --self-contained true -o $publish
+Write-Host "Publication d'Ilot $Version…"
+dotnet publish (Join-Path $root 'src\Ilot\Ilot.csproj') -c Release -r win-x64 -p:Platform=x64 --self-contained true -o $publish
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
@@ -37,9 +37,9 @@ if (-not $iscc) {
 }
 
 Write-Host "Création de l'installateur…"
-& $iscc "/DAppVersion=$Version" "/DSourceDir=$publish" "/DOutputDir=$artifacts" (Join-Path $PSScriptRoot 'MyNotch.iss')
+& $iscc "/DAppVersion=$Version" "/DSourceDir=$publish" "/DOutputDir=$artifacts" (Join-Path $PSScriptRoot 'Ilot.iss')
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-Write-Host "Prêt : $(Join-Path $artifacts "MyNotch-Setup-$Version.exe")"
+Write-Host "Prêt : $(Join-Path $artifacts "Ilot-Setup-$Version.exe")"

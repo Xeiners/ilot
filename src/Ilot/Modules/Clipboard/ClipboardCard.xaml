@@ -1,0 +1,209 @@
+<UserControl
+    x:Class="Ilot.Modules.Clipboard.ClipboardCard"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Ilot.Controls"
+    Width="140"
+    Height="96">
+
+    <!--
+        One copied item. Clicking the tile copies it again; the actions (preview, open, RGB, save, remove, pin) appear under
+        the pointer, in place of the kind label. Each kind shows its own preview, set up in code.
+    -->
+    <Grid x:Name="CardRoot">
+        <controls:MotionButton
+            x:Name="Body"
+            CanDrag="True"
+            Click="OnBodyClick"
+            DragStarting="OnDragStarting"
+            HaloOpacity="0.06"
+            HaloRestScale="1"
+            HoverScale="0.03"
+            PressScale="0.05"
+            Style="{StaticResource NotchCardButtonStyle}">
+            <Grid x:Name="Face">
+                <!--  Image: fills the tile, shaded at the top and bottom so the labels stay readable.  -->
+                <Image x:Name="Thumbnail" Stretch="UniformToFill" Visibility="Collapsed" />
+                <Border x:Name="ImageShade" Visibility="Collapsed">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Offset="0" Color="#B0000000" />
+                            <GradientStop Offset="0.38" Color="#00000000" />
+                            <GradientStop Offset="0.62" Color="#00000000" />
+                            <GradientStop Offset="1" Color="#B8000000" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                </Border>
+
+                <!--  Text and link.  -->
+                <StackPanel
+                    x:Name="TextContent"
+                    Margin="12,28,12,0"
+                    VerticalAlignment="Top"
+                    Spacing="1">
+                    <TextBlock
+                        x:Name="HeadlineText"
+                        FontFamily="Segoe UI Variable Text"
+                        FontSize="12"
+                        Foreground="{StaticResource NotchPrimaryTextBrush}"
+                        LineHeight="14.5"
+                        LineStackingStrategy="BlockLineHeight"
+                        MaxLines="3"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        x:Name="DetailText"
+                        FontFamily="Segoe UI Variable Text"
+                        FontSize="11"
+                        Foreground="{StaticResource NotchSecondaryTextBrush}"
+                        MaxLines="2"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
+                </StackPanel>
+
+                <!--  Colour: a swatch, the code and its RGB conversion.  -->
+                <Grid
+                    x:Name="ColorContent"
+                    Margin="12,30,10,0"
+                    VerticalAlignment="Top"
+                    ColumnSpacing="10"
+                    Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border
+                        x:Name="Swatch"
+                        Width="36"
+                        Height="36"
+                        BorderBrush="#33FFFFFF"
+                        BorderThickness="1"
+                        CornerRadius="10" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock x:Name="HexText" Style="{StaticResource NotchTitleTextStyle}" FontSize="13" />
+                        <TextBlock x:Name="RgbText" Style="{StaticResource NotchSubtitleTextStyle}" FontSize="10.5" />
+                    </StackPanel>
+                </Grid>
+
+                <!--  When it was copied.  -->
+                <TextBlock
+                    x:Name="AgeText"
+                    Margin="12,0,12,8"
+                    VerticalAlignment="Bottom"
+                    FontFamily="Segoe UI Variable Text"
+                    FontSize="10.5"
+                    Foreground="{StaticResource NotchSecondaryTextBrush}" />
+
+                <!--  Chosen with the arrow keys (Windows + V): a bright ring.  -->
+                <Border
+                    x:Name="SelectionRing"
+                    BorderBrush="#E6FFFFFF"
+                    BorderThickness="2"
+                    CornerRadius="16"
+                    IsHitTestVisible="False" />
+
+                <!--  Pinned: a warm ring around the tile.  -->
+                <Border
+                    x:Name="PinRing"
+                    BorderBrush="{StaticResource NotchPinBrush}"
+                    BorderThickness="1.5"
+                    CornerRadius="16"
+                    IsHitTestVisible="False" />
+            </Grid>
+        </controls:MotionButton>
+
+        <!--  Kind of item; fades away under the pointer to make room for the actions.  -->
+        <StackPanel
+            x:Name="Header"
+            Margin="12,9,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            IsHitTestVisible="False"
+            Orientation="Horizontal"
+            Spacing="5">
+            <FontIcon x:Name="KindIcon" FontSize="11" Foreground="{StaticResource NotchSecondaryTextBrush}" />
+            <TextBlock
+                x:Name="KindText"
+                FontFamily="Segoe UI Variable Text"
+                FontSize="11"
+                FontWeight="SemiBold"
+                Foreground="{StaticResource NotchSecondaryTextBrush}" />
+        </StackPanel>
+
+        <!--
+            The actions, under the pointer: a small dark pill in the top right corner (readable over an image too), its
+            buttons all alike. The pin stays there while pinned, alone in its corner.
+        -->
+        <Grid
+            Margin="0,6,6,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top">
+            <Border
+                x:Name="ActionsBack"
+                Background="#E61C1C1F"
+                BorderBrush="#24FFFFFF"
+                BorderThickness="1"
+                CornerRadius="13"
+                IsHitTestVisible="False" />
+            <StackPanel
+                Padding="1"
+                Orientation="Horizontal"
+                Spacing="0">
+                <controls:MotionButton
+                    x:Name="PreviewButton"
+                    Width="24"
+                    Height="24"
+                    AutomationProperties.Name="Aperçu"
+                    Click="OnPreviewClick"
+                    ToolTipService.ToolTip="Aperçu et retouche (Espace)">
+                    <FontIcon FontSize="12" Glyph="&#xE890;" />
+                </controls:MotionButton>
+                <controls:MotionButton
+                    x:Name="KindAction"
+                    Width="24"
+                    Height="24"
+                    Click="OnKindActionClick"
+                    Visibility="Collapsed" />
+                <controls:MotionButton
+                    x:Name="RemoveButton"
+                    Width="24"
+                    Height="24"
+                    AutomationProperties.Name="Supprimer"
+                    Click="OnRemoveClick"
+                    ToolTipService.ToolTip="Supprimer">
+                    <FontIcon FontSize="12" Glyph="&#xE74D;" />
+                </controls:MotionButton>
+                <controls:MotionButton
+                    x:Name="PinButton"
+                    Width="24"
+                    Height="24"
+                    Click="OnPinClick">
+                    <FontIcon x:Name="PinIcon" FontSize="12" Glyph="&#xE718;" />
+                </controls:MotionButton>
+            </StackPanel>
+        </Grid>
+
+        <!--  Confirmation after an action: "Copié", "RVB copié", "Enregistrée"…  -->
+        <Border
+            x:Name="Confirmation"
+            Background="#F2161618"
+            CornerRadius="16"
+            IsHitTestVisible="False">
+            <StackPanel
+                x:Name="ConfirmationContent"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="5">
+                <FontIcon FontSize="18" Foreground="{StaticResource NotchPrimaryTextBrush}" Glyph="&#xE73E;" />
+                <TextBlock
+                    x:Name="ConfirmationText"
+                    HorizontalAlignment="Center"
+                    FontFamily="Segoe UI Variable Text"
+                    FontSize="12"
+                    FontWeight="SemiBold"
+                    Foreground="{StaticResource NotchPrimaryTextBrush}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
