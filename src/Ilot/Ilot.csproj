@@ -52,6 +52,9 @@
   <!-- The app's icon: in the .exe (Explorer, Start menu, installer), and next to it for the settings window's own. -->
   <ItemGroup>
     <None Update="Assets\Ilot.ico" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The licence and the third-party notices, next to the app (the MIT licence asks for them in every copy). -->
+    <None Include="..\..\LICENSE" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

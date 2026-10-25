@@ -485,6 +485,8 @@ internal static partial class English
         ["Lancer avec Windows"] = "Start with Windows",
         ["À l'ouverture de votre session, la notch est là, sans rien d'autre à l'écran."] = "When you sign in, the notch is there, with nothing else on screen.",
         ["Se cacher au repos"] = "Hide when idle",
+        ["Développé par Xeiners, sous licence MIT."] = "Developed by Xeiners, under the MIT licence.",
+        ["github.com/Xeiners"] = "github.com/Xeiners",
 
         // The welcome's and the tour's newer steps (WelcomeWindow, TourSteps)
         ["Survolez sa petite poignée en haut de l'écran pour l'ouvrir ; elle se referme quand la souris s'en va. Un clic dedans la garde ouverte jusqu'à un clic ailleurs ; un double-clic l'épingle."] = "Hover its little handle at the top of the screen to open it; it closes when the pointer leaves. A click in it keeps it open until you click elsewhere; a double click pins it.",

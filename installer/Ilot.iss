@@ -21,7 +21,12 @@ AppId={{96759160-A82D-4F30-B9A8-8FEBD96293E8}
 AppName=Ilot
 AppVersion={#AppVersion}
 AppVerName=Ilot {#AppVersion}
-AppPublisher=Ilot
+AppPublisher=Xeiners
+AppPublisherURL=https://github.com/Xeiners
+AppSupportURL=https://github.com/Xeiners
+AppCopyright=Copyright © 2026 Xeiners
+VersionInfoCompany=Xeiners
+VersionInfoCopyright=Copyright © 2026 Xeiners
 VersionInfoVersion={#AppVersion}
 DefaultDirName={autopf}\Ilot
 DisableProgramGroupPage=yes
@@ -36,6 +41,8 @@ SetupIconFile=..\src\Ilot\Assets\Ilot.ico
 UninstallDisplayIcon={app}\Ilot.exe
 UninstallDisplayName=Ilot
 WizardStyle=modern
+; The licence (MIT), shown before installing.
+LicenseFile=..\LICENSE
 Compression=lzma2/max
 SolidCompression=yes
 ; The notch running (it holds this mutex) is closed before its files are replaced or removed.

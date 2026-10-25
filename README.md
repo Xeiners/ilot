@@ -5,7 +5,8 @@
 <h1 align="center">Ilot</h1>
 
 <p align="center">
-  Une « Dynamic Island » pour Windows 11, et Notch, sa mascotte.
+  Une « Dynamic Island » pour Windows 11, et Notch, sa mascotte.<br>
+  Développé par <a href="https://github.com/Xeiners">Xeiners</a>.
 </p>
 
 ---
@@ -60,6 +61,12 @@ powershell -ExecutionPolicy Bypass -File installer\build.ps1
 ```
 
 Il sort dans `artifacts\Ilot-Setup-<version>.exe`.
+
+## Licence
+
+Ilot est sous [licence MIT](LICENSE), Copyright (c) 2026 [Xeiners](https://github.com/Xeiners) : chacun peut
+réutiliser, modifier et même vendre le code, à condition de garder le nom de l'auteur et la licence. Les composants
+tiers gardent la leur : voir [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Plus de détails
 

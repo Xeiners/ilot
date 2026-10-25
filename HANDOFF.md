@@ -1058,6 +1058,11 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 
 ## 7. Pièges déjà rencontrés
 
+- **Licence** : MIT, Copyright (c) 2026 Xeiners (`LICENSE`, texte MIT standard en ASCII et CRLF : GitHub la reconnaît,
+  et la page de licence de l'installateur, `LicenseFile`, l'affiche bien). Les composants tiers (tous MIT) sont dans
+  `THIRD-PARTY-NOTICES.md` ; les deux fichiers sont copiés à côté d'`Ilot.exe` (`Ilot.csproj`). Éditeur « Xeiners » dans
+  `Directory.Build.props` (propriétés de l'exécutable) et `installer/Ilot.iss` ; carte « À propos » dans Paramètres →
+  Général (`SettingsWindow.AboutTitle`, la version compilée).
 - **Logo et icône** : la source est `docs/logo.svg` (tuile noire, lueur blanche floutée, l'îlot noir et Notch dans sa
   pose neutre, aux proportions de `MascotRig`) ; `docs/logo.png` en est le rendu 512 px. `src/Ilot/Assets/Ilot.ico` en est
   tiré : 9 tailles de 16 à 256 px, en PNG (rendu du SVG à chaque taille, découpé, puis assemblé en .ico). Il sert à

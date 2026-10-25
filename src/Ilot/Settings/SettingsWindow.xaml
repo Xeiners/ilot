@@ -338,6 +338,31 @@
                             </StackPanel>
                         </Grid>
                     </Border>
+
+                    <!--  About: the version, who made it, its licence.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE946;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind AboutTitle}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Développé par Xeiners, sous licence MIT."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <HyperlinkButton
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Content="github.com/Xeiners"
+                                NavigateUri="https://github.com/Xeiners" />
+                        </Grid>
+                    </Border>
                 </StackPanel>
 
                 <!--  Poignée.  -->

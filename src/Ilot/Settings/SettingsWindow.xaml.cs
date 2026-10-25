@@ -516,6 +516,9 @@ public sealed partial class SettingsWindow : Window
     /// <summary>The preview of the line on the closed notch, when it goes there.</summary>
     public Visibility InNotch(string place) => place == AppSettings.LyricsInTaskbar ? Visibility.Collapsed : Visibility.Visible;
 
+    /// <summary>« Ilot 1.0.0 »: the version, as built (Directory.Build.props).</summary>
+    public string AboutTitle => $"Ilot {typeof(App).Assembly.GetName().Version?.ToString(3)}";
+
     public double MinLyricsWidth => AppSettings.MinLyricsTaskbarWidth;
 
     public double MaxLyricsWidth => AppSettings.MaxLyricsTaskbarWidth;
