@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Ilot: its mascot, Notch, in its island (the black pill of the notch), a soft white glow behind it on a black tile. -->
+  <defs>
+    <clipPath id="tile-shape">
+      <rect width="512" height="512" rx="116" />
+    </clipPath>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16161A" />
+      <stop offset="1" stop-color="#050506" />
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="42" />
+    </filter>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" />
+      <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.035 0" />
+    </filter>
+    <linearGradient id="island" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A1B20" />
+      <stop offset="0.35" stop-color="#000000" />
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.4" />
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.08" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.22" />
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" />
+      <stop offset="1" stop-color="#D6D9E6" />
+    </linearGradient>
+  </defs>
+
+  <!-- The tile, and the island's white glow. -->
+  <g clip-path="url(#tile-shape)">
+    <rect width="512" height="512" fill="url(#tile)" />
+    <rect x="70" y="150" width="372" height="240" rx="120" fill="#FFFFFF" opacity="0.42" filter="url(#glow)" />
+    <rect width="512" height="512" filter="url(#grain)" />
+  </g>
+  <rect x="1" y="1" width="510" height="510" rx="115" fill="none" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="2" />
+
+  <!-- The island: the notch's black pill, its rim catching the light. -->
+  <rect x="76" y="148" width="360" height="232" rx="116" fill="url(#island)" />
+  <rect x="77.25" y="149.25" width="357.5" height="229.5" rx="114.75" fill="none" stroke="url(#rim)" stroke-width="2.5" />
+
+  <!-- Notch, the mascot (its neutral pose: MascotRig, 100 x 100 box scaled 2.2 around the pill's middle). -->
+  <g transform="translate(146 152) scale(2.2)">
+    <rect x="7" y="16" width="86" height="76" rx="36" fill="url(#body)" />
+    <rect x="-5.25" y="-10.5" width="10.5" height="21" rx="5.25" fill="#000000" transform="translate(35 49) rotate(-6)" />
+    <rect x="-5.25" y="-10.5" width="10.5" height="21" rx="5.25" fill="#000000" transform="translate(65 49) rotate(6)" />
+  </g>
+</svg>

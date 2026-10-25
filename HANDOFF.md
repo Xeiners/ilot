@@ -1,7 +1,8 @@
 # Ilot — passation
 
 Ce document s'adresse au développeur (ou à l'agent IA) qui reprend Ilot. Il complète le
-[README](README.md), qui décrit en détail chaque fonctionnalité, la structure des fichiers et l'animation. Ici :
+[détail des fonctionnalités](docs/FONCTIONNALITES.md), qui décrit chaque fonctionnalité, la structure des fichiers et
+l'animation (le [README](README.md) n'en est que la vitrine). Ici :
 comment travailler sur le projet, les règles à respecter, l'état réel des modules, et les pièges déjà rencontrés.
 
 Dernière mise à jour : 21 octobre 2026.
@@ -74,7 +75,8 @@ d'écran à répétition. Il écrit en français et attend des réponses en fran
    permanente. Les modules lisent leurs données quand leur onglet devient visible (`NotchContext.IsVisible`) et
    s'arrêtent quand il disparaît. Les écritures disque sont différées et faites hors du thread UI.
 3. **Des icônes, pas d'émojis** : Segoe Fluent Icons (`FontIcon`), y compris quand une demande cite des émojis.
-4. **Le README est tenu à jour** à chaque fonctionnalité ou changement visible.
+4. **`docs/FONCTIONNALITES.md` est tenu à jour** à chaque fonctionnalité ou changement visible (et le README, court,
+   quand un réglage ou une grande fonction s'ajoute).
 5. **Code lisible et dans le ton de l'existant** : commentaires `///` rédigés comme des phrases qui expliquent
    le *pourquoi*, noms explicites, une classe par fichier, modules rangés dans `Modules/<Nom>/`.
 6. **Dépendances légères** : préférer l'API Windows ou quelques centaines de lignes maison (le répondeur mDNS,
@@ -1056,6 +1058,10 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 
 ## 7. Pièges déjà rencontrés
 
+- **Logo et icône** : la source est `docs/logo.svg` (tuile noire, lueur blanche floutée, l'îlot noir et Notch dans sa
+  pose neutre, aux proportions de `MascotRig`) ; `docs/logo.png` en est le rendu 512 px. `src/Ilot/Assets/Ilot.ico` en est
+  tiré : 9 tailles de 16 à 256 px, en PNG (rendu du SVG à chaque taille, découpé, puis assemblé en .ico). Il sert à
+  l'exécutable (`ApplicationIcon`), aux fenêtres (`AppWindow.SetIcon`) et à l'installateur (`SetupIconFile`).
 - **Renommée MyNotch → Ilot** (25 octobre 2026) : projet `src/Ilot` (`Ilot.csproj`, `Ilot.sln`, `installer/Ilot.iss`,
   `Ilot.exe`), espaces de noms `Ilot.*`, mutex `LocalIlot.SingleInstance`. Les données passent toutes par
   `AppData.Folder` (`%LOCALAPPDATA%Ilot`) : au premier lancement, `%LOCALAPPDATA%MyNotch` y est déplacé d'un bloc
@@ -1164,7 +1170,7 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 ## 10. Prompt de reprise (à donner à un agent IA)
 
 > Tu reprends **Ilot**, une « Dynamic Island » pour Windows 11 en C# / .NET 10 / WinUI 3, dans
-> `C:\dev\mynotch`. Avant toute modification, lis `HANDOFF.md` (règles, état, pièges) puis `README.md`
+> `C:\dev\mynotch`. Avant toute modification, lis `HANDOFF.md` (règles, état, pièges) puis `docs/FONCTIONNALITES.md`
 > (fonctionnalités et structure), et parcours `src/Ilot/Notch/NotchContext.cs` (l'API des modules) et
 > `src/Ilot/App.xaml.cs` (enregistrement des modules).
 >
@@ -1177,7 +1183,7 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 > - Interface en français, code et commentaires en anglais, dans le style existant (commentaires `///` qui
 >   expliquent le pourquoi).
 > - Ne rien casser de l'existant : ajouter à côté.
-> - Tenir le README à jour.
+> - Tenir `docs/FONCTIONNALITES.md` (et le README, court) à jour.
 >
 > Méthode : le propriétaire est le testeur et te parle en français. Implémente, compile pour vérifier (0
 > avertissement, 0 erreur ; si Ilot tourne, compile avec `-p:OutDir=` vers un dossier temporaire), teste
