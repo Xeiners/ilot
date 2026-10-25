@@ -1,4 +1,4 @@
-<#
+﻿<#
   Builds Ilot's installer: publishes the app (Release, x64, self-contained: nothing else needed on the PC), then
   compiles installer\Ilot.iss with Inno Setup 6.
 

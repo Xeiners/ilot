@@ -1,4 +1,4 @@
-; Ilot's installer (Inno Setup 6). Built by installer\build.ps1, which publishes the app first and passes:
+﻿; Ilot's installer (Inno Setup 6). Built by installer\build.ps1, which publishes the app first and passes:
 ;   AppVersion  the version (Directory.Build.props)
 ;   SourceDir   the published app (self-contained: nothing else to install)
 ;   OutputDir   where Ilot-Setup-<version>.exe goes
