@@ -77,7 +77,8 @@ public sealed class SettingsStore : IDisposable
                 settings.SearchScreen = stored.SearchScreen;
                 settings.SearchKeepQuery = stored.SearchKeepQuery;
                 settings.HideWhenIdle = stored.HideWhenIdle;
-                settings.IdleSeconds = stored.IdleSeconds ?? stored.IdleMinutes * 60; // Saved in minutes before.
+                // Saved in minutes before; 180 s was the default before 5 s (and is no longer allowed): never changed, it becomes the new one.
+                settings.IdleSeconds = stored.IdleSeconds is 180 ? AppSettings.MinIdleSeconds : stored.IdleSeconds ?? stored.IdleMinutes * 60;
                 settings.Language = stored.Language;
                 settings.MascotColor = stored.MascotColor;
                 settings.AssistantModel = stored.AssistantModel;
@@ -182,7 +183,7 @@ public sealed class SettingsStore : IDisposable
         string SearchScreen = "pointer",
         bool SearchKeepQuery = true,
         bool HideWhenIdle = true,
-        double IdleMinutes = 3,
+        double IdleMinutes = 1.0 / 12, // 5 s (settings saved in minutes, before seconds).
         string Language = "auto",
         bool ShowMascot = true,
         string MascotColor = Mascot.MascotPalette.DefaultId,

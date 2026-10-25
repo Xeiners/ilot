@@ -82,7 +82,7 @@ public sealed class AppSettings : ObservableObject
     }
 
     public const double MinIdleSeconds = 5;
-    public const double MaxIdleSeconds = 300;
+    public const double MaxIdleSeconds = 120;
     public const double IdleSecondsStep = 5;
 
     private bool _hideWhenIdle = true;
@@ -306,7 +306,7 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref _assistantShortcutOn, value);
     }
     private string _mascotColor = Mascot.MascotPalette.DefaultId;
-    private double _idleSeconds = 180;
+    private double _idleSeconds = 5;
 
     private bool _stayOpenAfterClick = true;
     private bool _autoUpdate = true;
@@ -338,7 +338,7 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref _hideWhenIdle, value);
     }
 
-    /// <summary>How long with nothing going on before the notch withdraws, in seconds (by steps of five).</summary>
+    /// <summary>How long with nothing going on before the notch withdraws, in seconds (by steps of five): 5 s by default, 2 min at most.</summary>
     public double IdleSeconds
     {
         get => _idleSeconds;

@@ -358,7 +358,7 @@ Fonctionnalités :
 - **Clic droit** : menu « Garder ouverte » / « Mode minimisé » / « Paramètres… » / « Quitter Ilot ».
 - **Au repos, une poignée** : sans rien à afficher (pas de musique ouverte : la pilule serait vide), la notch n'est que
   sa poignée (la petite languette avec sa ligne claire), tout de suite. Avec un morceau en pause (ou rien qui se passe),
-  elle se réduit à sa poignée au bout de 3 minutes (réglable de 5 secondes à 5 minutes, ou désactivable : « Se cacher au repos »), et dès le démarrage. La survoler la fait
+  elle se réduit à sa poignée (ou au nid de la mascotte) au bout de 5 secondes (réglable de 5 secondes à 2 minutes, ou désactivable : « Se cacher au repos »), et dès le démarrage. La survoler la fait
   gonfler puis s'ouvrir. La pilule revient d'elle-même dès que la musique
   reprend, et le temps d'une annonce (« Texte copié »…), d'une carte (appareil audio) ou d'une question (fichier
   reçu). Un module le dit par `NotchContext.SetPresence()` (`Active` : la musique joue ; `Idle` : un morceau en pause ;
