@@ -29,6 +29,9 @@ public sealed class MixerApp
     /// <summary>The program's path (its icon); <c>null</c> for the system's sounds, or one that could not be read.</summary>
     public string? Program { get; }
 
+    /// <summary>What it is known by (its program, in lower case: see SoundBooster); <c>null</c> without one.</summary>
+    public string? Key => Program?.ToLowerInvariant();
+
     /// <summary>The system's sounds (notifications…), not an app's.</summary>
     public bool IsSystem { get; }
 

@@ -394,7 +394,8 @@ public sealed partial class NotchView : UserControl
                 () => ShowModule(index),
                 Present,
                 Ask,
-                ShowBubble);
+                ShowBubble,
+                hidden => HideTabs(index, hidden));
             // Registered before the view exists: a module may already reshape the notch from its constructor.
             var slot = new ModuleSlot(modules[i], context);
             _modules.Add(slot);
@@ -556,11 +557,11 @@ public sealed partial class NotchView : UserControl
 
         if (animate)
         {
-            _tabsShown?.AnimateTo(tab ? 1 : 0, Motion.Fade);
+            _tabsShown?.AnimateTo(TabsShown ? 1 : 0, Motion.Fade);
         }
         else
         {
-            _tabsShown?.Snap(tab ? 1 : 0);
+            _tabsShown?.Snap(TabsShown ? 1 : 0);
         }
 
         UpdateHitTesting();
@@ -586,6 +587,25 @@ public sealed partial class NotchView : UserControl
         }
     }
 
+    /// <summary>The tabs show: the module shown has one, and does not need their row (its search field open).</summary>
+    private bool TabsShown => _selected < _modules.Count && _modules[_selected].Module.HasTab && !_modules[_selected].HidesTabs;
+
+    /// <summary>A module needs the tabs' row (see NotchContext.HideTabs): they step aside while it shows, and come back.</summary>
+    private void HideTabs(int module, bool hidden)
+    {
+        if (_modules[module].HidesTabs == hidden)
+        {
+            return;
+        }
+
+        _modules[module].HidesTabs = hidden;
+        if (module == _selected)
+        {
+            _tabsShown?.AnimateTo(TabsShown ? 1 : 0, Motion.Fade);
+            UpdateHitTesting();
+        }
+    }
+
     /// <summary>The open notch's shape now: the shown module's own, else the usual one (enlarged on request).</summary>
     private NotchShape OpenNow =>
         (_selected < _modules.Count ? _modules[_selected].Module.OpenShape : null) ?? _layout.OpenShape(_expandedShape);
@@ -594,7 +614,7 @@ public sealed partial class NotchView : UserControl
     private void UpdateHitTesting()
     {
         bool open = _phase == NotchPhase.Expanded;
-        TabBar.IsHitTestVisible = open && (_selected >= _modules.Count || _modules[_selected].Module.HasTab);
+        TabBar.IsHitTestVisible = open && (_selected >= _modules.Count || TabsShown);
         for (int i = 0; i < _modules.Count; i++)
         {
             if (_modules[i].View is { } view)
@@ -2417,6 +2437,7 @@ public sealed partial class NotchView : UserControl
     /// </summary>
     private void BindMixer(double quickLeft)
     {
+        Mixer.Attach(_quick!.Booster);
         double right = quickLeft - MixerGap;
         Mixer.Width = Math.Clamp(right - MixerEdge, MixerPanel.SmallestWidth, MixerPanel.PanelWidth);
         double left = right - Mixer.Width;
@@ -2653,6 +2674,9 @@ public sealed partial class NotchView : UserControl
         public double CompactWidth { get; set; }
 
         public NotchShape? ExpandedShape { get; set; }
+
+        /// <summary>It needs the tabs' row (its search field open over them).</summary>
+        public bool HidesTabs { get; set; }
 
         /// <summary>What it has for the closed notch (see <see cref="NotchContext.SetPresence"/>).</summary>
         public NotchPresence Presence { get; set; }

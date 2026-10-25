@@ -175,7 +175,8 @@ public sealed partial class AppUpdater : ObservableObject, IDisposable
             if (!IsInstalled)
             {
                 State = UpdateState.Available;
-                StatusText = Loc.F("Ilot {0} est sortie. Cette copie (lancée depuis les sources) ne se met pas à jour toute seule.", version);
+                StatusText = Loc.F("Ilot {0} est sortie (cette copie est la {1}, lancée depuis les sources : elle ne se met pas à jour toute seule).",
+                    version, Current.ToString(3));
                 return;
             }
 
@@ -352,13 +353,15 @@ public sealed partial class AppUpdater : ObservableObject, IDisposable
     private void SetReady()
     {
         State = UpdateState.Ready;
-        StatusText = Loc.F("Ilot {0} est prête : elle s'installe en quelques secondes.", _available?.ToString(3) ?? "");
+        StatusText = Loc.F("Ilot {0} est prête (vous avez la {1}) : elle s'installe en quelques secondes.",
+            _available?.ToString(3) ?? "", Current.ToString(3));
         Ready?.Invoke(this, EventArgs.Empty);
     }
 
     private void SetUpToDate()
     {
-        State = UpdateState.UpToDate;
+        _available = null;
+        State = UpdateState.UpToDate; // An offer made earlier no longer stands: the notch takes it back (UpdateModule).
         StatusText = Loc.F("Ilot {0} est à jour.", Current.ToString(3));
     }
 

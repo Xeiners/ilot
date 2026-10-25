@@ -161,7 +161,10 @@ LRCLIB, volume Core Audio, carte « appareil connecté ».
   défaut, ou `taskbar`) : Paramètres → Paroles → « Ligne chantée » (liste ; l'aperçu montre la notch fermée ou une barre
   des tâches). Seule la ligne de la notch **fermée** change de place : la notch ouverte garde ses paroles. Dans
   `MediaView`, un canal à part `m.PillLyrics` (`InPill` : paroles montrées et pas pour la barre des tâches) règle la ligne
-  de la pilule, sa largeur (`RequestCompactWidth`) et la ligne de progression ; `m.Lyrics` reste pour la notch ouverte.
+  de la pilule et sa largeur (`RequestCompactWidth`) ; `m.Lyrics` reste pour la notch ouverte. La pilule n'a plus de ligne
+  de progression (retirée : inutile fermée) : entre la pochette et le visualiseur, seulement la ligne chantée s'il y a des paroles ;
+  sans paroles, la pilule se resserre sur la pochette et la mascotte (`MediaView.SizePill` / `NarrowPill` : la largeur
+  demandée peut maintenant être plus petite que celle de la notch, `NotchLayout.ShapeFor`, jamais moins que ronde).
   `PlaceLyrics` crée ou retire `TaskbarLyrics` selon le réglage ; un clic sur la ligne ouvre la notch sur le lecteur.
   - **Où** (`Windowing/TaskbarSpots`) : UI Automation (`Interop/UIAutomation.cs`, interfaces COM réduites à l'ordre de
     leur vtable) sur `Shell_TrayWnd` : tous les boutons (Démarrer, recherche, applis, icônes de la zone de notification,
@@ -192,7 +195,7 @@ LRCLIB, volume Core Audio, carte « appareil connecté ».
     tâches ». Un clic ailleurs sur elle ouvre la notch sur le lecteur.
   - **Le lecteur hors de la notch fermée** (option `AppSettings.HidePlayerInNotch`, Paramètres → Paroles, visible en mode
     barre des tâches) : tant que `TaskbarLyrics.IsShown` (événement `ShownChanged`), `MediaView.PillShown` est faux :
-    canal `m.Pill` à 0 (pochette, ligne de progression, visualiseur et ligne de la pilule effacés fermés ; ouverts,
+    canal `m.Pill` à 0 (pochette, visualiseur et ligne de la pilule effacés fermés ; ouverts,
     rien ne change) et présence `NotchPresence.Elsewhere` (-1) : la notch fermée se repose tout de suite dans son état
     neutre (la mascotte dans son nid, ou la poignée sans elle), même « Se cacher au repos » désactivé
     (`NotchView.RestsElsewhere` dans `UpdateIdle` ; repasser d'ailleurs à rien ne rappelle pas la pilule). Aussi
@@ -1058,6 +1061,47 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 
 ## 7. Pièges déjà rencontrés
 
+- **Recherche de Notes et du Presse-papier sur les onglets** : leur case (`NotchSearchBox`, en haut à droite) s'étire
+  vers la gauche ; avec six onglets, elle recouvrait « Pomodoro ». Ouverte, elle demande `NotchContext.HideTabs(true)` :
+  la barre d'onglets s'efface (`NotchView.TabsShown`, plus cliquable), et revient à sa fermeture (loupe, Échap, onglet
+  quitté ou notch fermée : les deux vues la vident alors).
+
+- **Deux bulles sous la poignée au survol** : les petites notches cachées dans les bouts de la pilule fermée (réglages
+  rapides, mascotte) gardaient 36 px pendant que la pilule s'effaçait vers sa poignée, et dépassaient dessous en
+  s'estompant. Fermées, elles ne sont plus plus hautes que la notch du moment (`NotchSurface.ClosedPod` : `Min(cw, n.Height)`).
+
+- **Booster de son natif** (`Quick/SoundBooster.cs`, `Quick/BoostStream.cs`, jamais vu à l'écran ; Equalizer APO
+  abandonné : l'utilisateur ne veut rien à installer). Par appli, jusqu'à 200 % (`SoundBooster.Most`), Windows 11
+  (build ≥ 20348 : la capture d'un processus, `WasapiRecorderBuilder.WithProcessLoopback`, NAudio 3.3).
+  - **Le principe, mesuré** (sondes du scratchpad `loopbackprobe`) : la capture d'un processus se fait **après** le volume
+    de sa session (coupée ou à 0 : plus rien). Mais à 0,1 % (`BoostStream.Floor`), elle est exacte : 148 dB de rapport
+    signal/bruit (le moteur mixe en flottants). Donc : la session de l'appli à 0,1 % (−60 dB, ce qui reste ne s'entend
+    pas), Ilot capture son arbre de processus et rejoue ×(niveau / 0,001), limiteur (crête < −0,3 dBFS, relâche 200 ms),
+    dans sa propre session (`SetDuckingPreference(true)` : pas baissée pendant un appel). Mesuré (`streamtest`) : gain
+    exact (×1501 pour ×1500), 0,11 % de CPU, ~65 à 85 ms de décalage (capture ~10 ms, réserve ~10 ms, lecteur
+    IAudioClient3 ~22 ms, le reste dans Windows), aucune coupure (`Starved`/`Dropped` à 0).
+  - **Sûreté** : silencieux tant que les sessions ne sont pas baissées (`Settle` : 60 ms après, sur l'horloge des
+    paquets) ; un paquet plus fort que 2 × 0,001 = une session remontée derrière son dos : silence aussitôt (`Tripped`),
+    puis une passe. Les volumes d'origine sont notés sur disque **avant** d'être baissés (`boost-held.json` : Windows
+    retient le volume d'une appli, une appli boostée reviendrait muette après un plantage) ; rendus en quittant
+    (`Dispose`, passe finale), à l'extinction, ou au lancement suivant (`Start`).
+  - **Les passes** (`Pass`, un fil à elles, regroupées) : toutes les sessions de toutes les sorties ; les processus
+    joués = ceux des sessions des applis boostées, sauf un dans l'arbre d'un autre (parents : `NativeMethods.ParentProcesses`,
+    un instantané Toolhelp, aucun processus ouvert) ; 1. les flux en trop arrêtés d'abord, 2. les voulus démarrés,
+    3. les sessions de leurs arbres baissées (notées avant), 4. les sessions notées et plus baissées remontées (le niveau
+    demandé ≤ 100 %, sinon 100 % pour une appli boostée, sinon leur volume noté), 5. les sessions baissées suivies
+    (`IAudioSessionEvents` : bougées ailleurs → fin du boost à ce volume ; expirées → passe), 6. les nouvelles sessions
+    et les sorties surveillées (`OnSessionCreated`, `CreateNotificationClient`) tant que quelque chose est boosté ou noté.
+    Sortie par défaut changée : les flux sont refaits (IAudioClient3 n'accepte pas le routage automatique).
+    Rien de boosté ni de noté : aucune surveillance, rien ne tourne.
+  - Réglages `AppSettings.BoostOn` (l'interrupteur) et `BoostLevels` (programme en minuscules → niveau > 1, gardés
+    interrupteur éteint). `MixerApp.Key` = le programme en minuscules. Mélangeur : interrupteur en bas
+    (`MixerPanel.ShowBooster`) ; allumé, `MixerSlider.Most` = 2 et un repère à 1 (aimanté à ±4 %), le pourcentage > 100
+    dans la couleur de la mascotte ; un curseur passe par `SoundBooster.Set` au-delà de 100 % ou tant que
+    `SoundBooster.Holds` (sinon directement le volume de Windows).
+  - Testé en direct (scratchpad `boostertest`, 28 vérifications, sur ses propres processus enfants uniquement, bips à
+    −120 dBFS, AppData factice) : boost, niveau changé en direct, nouvelle session vue, volume bougé ailleurs,
+    interrupteur, sous 100 %, quitter, plantage (éteint et allumé), appli relancée.
 - **Mises à jour automatiques** (`Updates/`, jamais vues à l'écran) : `AppUpdater` lit la dernière Release de
   GitHub (`api.github.com/repos/Xeiners/ilot/releases/latest`, sans clé : brouillons et pré-versions ignorés ; 404 = aucune
   Release, « à jour »), 30 s après le démarrage puis toutes les 6 h (une minuterie, rien entre deux), si

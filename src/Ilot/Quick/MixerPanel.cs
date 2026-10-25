@@ -15,7 +15,8 @@ namespace Ilot.Quick;
 /// <summary>
 /// The volume mixer, left of the quick controls (a right click on the volume): each app making sound on the default output,
 /// its icon (a click mutes it), its name, its level as a slim slider in the mascot's colour, and the number. The notch's
-/// black, a faint rim; no scroll bar past a handful of apps.
+/// black, a faint rim; no scroll bar past a handful of apps. At its bottom, the booster's switch (see <see cref="SoundBooster"/>):
+/// on, the apps' sliders go up to 200 %, a mark at 100 %.
 /// </summary>
 public sealed partial class MixerPanel : Grid
 {
@@ -33,6 +34,10 @@ public sealed partial class MixerPanel : Grid
     private readonly Rectangle _bottomFade;
     private readonly TextBlock _empty;
     private readonly List<MixerSlider> _sliders = [];
+    private readonly Border _boostHost = new() { Margin = new Thickness(0, 2, 0, 0) };
+    private SoundBooster? _booster;
+    private IReadOnlyList<MixerApp> _apps = [];
+    private ShellIcons? _icons;
     private Color _accent = Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
 
     public MixerPanel()
@@ -85,6 +90,8 @@ public sealed partial class MixerPanel : Grid
         _scroller.ViewChanged += (_, _) => UpdateFades();
         _scroller.SizeChanged += (_, _) => UpdateFades();
         content.Children.Add(_empty);
+        content.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF)) });
+        content.Children.Add(_boostHost);
         frame.Child = content;
 
         // Its own: the notch neither pins nor closes for a click in it, nor shows its menu.
@@ -126,19 +133,101 @@ public sealed partial class MixerPanel : Grid
         }
     }
 
+    /// <summary>The booster, its switch at the bottom.</summary>
+    public void Attach(SoundBooster booster)
+    {
+        _booster = booster;
+        ShowBooster();
+    }
+
+    /// <summary>
+    /// The booster's row: its switch, and what it does (« Jusqu'à 200 % par application »). Before Windows 11 (no capture of
+    /// an app's sound), it says so.
+    /// </summary>
+    private void ShowBooster()
+    {
+        if (_booster is not { } booster)
+        {
+            return;
+        }
+
+        var row = new Grid { ColumnSpacing = 11 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var glyph = new FontIcon { Glyph = "\uE995", FontSize = 15, Foreground = Text, VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(glyph);
+        var title = new TextBlock
+        {
+            Text = Loc.T("Booster"),
+            FontFamily = new FontFamily("Segoe UI Variable Text"),
+            FontSize = 12.5,
+            Foreground = Text,
+        };
+        var detail = new TextBlock { FontSize = 11.5, Foreground = Faint, TextTrimming = TextTrimming.CharacterEllipsis };
+        var middle = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        middle.Children.Add(title);
+        middle.Children.Add(detail);
+        Grid.SetColumn(middle, 1);
+        row.Children.Add(middle);
+        _boostHost.Child = row;
+
+        if (!SoundBooster.IsSupported)
+        {
+            detail.Text = Loc.T("Il faut Windows 11.");
+            title.Opacity = glyph.Opacity = 0.7;
+            return;
+        }
+
+        var toggle = new ToggleSwitch
+        {
+            IsOn = booster.IsOn,
+            MinWidth = 0,
+            OnContent = "",
+            OffContent = "",
+            RequestedTheme = ElementTheme.Dark,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, -8, 0),
+        };
+        AutomationProperties.SetName(toggle, Loc.T("Booster"));
+        Grid.SetColumn(toggle, 2);
+        row.Children.Add(toggle);
+
+        Refresh();
+        toggle.Toggled += (_, _) =>
+        {
+            booster.IsOn = toggle.IsOn;
+            Refresh();
+            ShowRows(); // Their sliders go up to 200 %, or back to 100 %.
+        };
+
+        void Refresh()
+        {
+            detail.Text = booster.IsOn ? Loc.T("Jusqu'à 200 % par application") : Loc.T("Désactivé : 100 % au plus");
+            title.Opacity = glyph.Opacity = booster.IsOn ? 1 : 0.7;
+        }
+    }
+
     /// <summary>Shows <paramref name="apps"/>, their icons drawn by <paramref name="icons"/>.</summary>
     public void Show(IReadOnlyList<MixerApp> apps, ShellIcons? icons)
     {
-        _rows.Children.Clear();
-        _sliders.Clear();
-        foreach (var app in apps)
-        {
-            _rows.Children.Add(Row(app, icons));
-        }
-
+        _apps = apps;
+        _icons = icons;
+        ShowRows();
         _empty.Visibility = apps.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         _scroller.ChangeView(null, 0, null, disableAnimation: true);
         UpdateFades();
+        ShowBooster();
+    }
+
+    private void ShowRows()
+    {
+        _rows.Children.Clear();
+        _sliders.Clear();
+        foreach (var app in _apps)
+        {
+            _rows.Children.Add(Row(app, _icons));
+        }
     }
 
     private Grid Row(MixerApp app, ShellIcons? icons)
@@ -182,7 +271,11 @@ public sealed partial class MixerPanel : Grid
             Foreground = Text,
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
-        var slider = new MixerSlider(_accent) { Margin = new Thickness(0, 4, 0, 0) };
+        // Its level: Windows' own, or the booster's (past 100 %, or about to be given back).
+        string? key = app.IsSystem ? null : app.Key;
+        bool boostable = key is not null && _booster is { IsOn: true } && SoundBooster.IsSupported;
+        double level = key is not null && _booster?.Level(key) is { } held ? held : app.Volume;
+        var slider = new MixerSlider(_accent) { Margin = new Thickness(0, 4, 0, 0), Most = boostable ? SoundBooster.Most : 1 };
         _sliders.Add(slider);
         var middle = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         middle.Children.Add(name);
@@ -205,9 +298,18 @@ public sealed partial class MixerPanel : Grid
         row.Children.Add(number);
 
         Refresh();
-        slider.Changed += (_, level) =>
+        slider.Changed += (_, value) =>
         {
-            app.Volume = level;
+            level = boostable && Math.Abs(value - 1) < 0.04 ? 1 : value; // 100 %: a notch, easy to come back to.
+            if (key is not null && _booster is { } booster && (level > 1 || booster.Holds(key)))
+            {
+                booster.Set(key, level);
+            }
+            else
+            {
+                app.Volume = level;
+            }
+
             if (app.IsMuted && level > 0)
             {
                 app.IsMuted = false; // Turned up: heard again, as Windows' mixer does.
@@ -224,10 +326,10 @@ public sealed partial class MixerPanel : Grid
 
         void Refresh()
         {
-            double level = app.Volume;
             bool silent = app.IsMuted;
             slider.Show(level, silent);
             number.Text = (level * 100).ToString("0", CultureInfo.CurrentCulture);
+            number.Foreground = level > 1 ? new SolidColorBrush(_accent) : Faint; // Boosted.
             muted.Visibility = silent ? Visibility.Visible : Visibility.Collapsed;
             glyph.Opacity = image.Opacity = silent ? 0.35 : 1;
             name.Opacity = silent ? 0.5 : 1;
@@ -247,7 +349,8 @@ public sealed partial class MixerPanel : Grid
 
 /// <summary>
 /// A slim slider for the mixer: a faint track, its level in the accent, a round knob. Pressed anywhere on it, the level
-/// jumps there and follows the pointer; the wheel moves it by 5 %.
+/// jumps there and follows the pointer; the wheel moves it by 5 %. Its levels go from 0 to <see cref="Most"/> (1; 2 for an
+/// app the booster can make louder, a mark at 1).
 /// </summary>
 public sealed partial class MixerSlider : Grid
 {
@@ -255,9 +358,12 @@ public sealed partial class MixerSlider : Grid
     private const double WheelStep = 0.05;
 
     private readonly Border _fill;
+    private readonly Border _mark;
+    private readonly TranslateTransform _markAt = new();
     private readonly Ellipse _knob;
     private readonly TranslateTransform _knobAt = new();
     private double _level;
+    private double _most = 1;
     private bool _pressed;
 
     public MixerSlider(Color accent)
@@ -289,7 +395,20 @@ public sealed partial class MixerSlider : Grid
             VerticalAlignment = VerticalAlignment.Center,
             RenderTransform = _knobAt,
         };
+        _mark = new Border
+        {
+            Width = 2,
+            Height = 8,
+            CornerRadius = new CornerRadius(1),
+            Background = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            RenderTransform = _markAt,
+            Visibility = Visibility.Collapsed,
+            IsHitTestVisible = false,
+        };
         Children.Add(_fill);
+        Children.Add(_mark);
         Children.Add(_knob);
         Tint(accent);
 
@@ -317,17 +436,29 @@ public sealed partial class MixerSlider : Grid
         {
             e.Handled = true;
             int delta = e.GetCurrentPoint(this).Properties.MouseWheelDelta;
-            Changed?.Invoke(this, Math.Clamp(_level + Math.Sign(delta) * WheelStep, 0, 1));
+            Changed?.Invoke(this, Math.Clamp(_level + Math.Sign(delta) * WheelStep, 0, _most));
         };
     }
 
-    /// <summary>The user moved it: to this level (0 to 1).</summary>
+    /// <summary>Its highest level: 1, or more (a mark at 1 then).</summary>
+    public double Most
+    {
+        get => _most;
+        set
+        {
+            _most = Math.Max(value, 1);
+            _mark.Visibility = _most > 1 ? Visibility.Visible : Visibility.Collapsed;
+            Place();
+        }
+    }
+
+    /// <summary>The user moved it: to this level (0 to <see cref="Most"/>).</summary>
     public event EventHandler<double>? Changed;
 
-    /// <summary>Shows <paramref name="level"/> (0 to 1), dimmed when <paramref name="silent"/>.</summary>
+    /// <summary>Shows <paramref name="level"/> (0 to <see cref="Most"/>), dimmed when <paramref name="silent"/>.</summary>
     public void Show(double level, bool silent)
     {
-        _level = Math.Clamp(level, 0, 1);
+        _level = Math.Clamp(level, 0, _most);
         Opacity = silent ? 0.45 : 1;
         Place();
     }
@@ -341,14 +472,15 @@ public sealed partial class MixerSlider : Grid
     private void Place()
     {
         double track = Math.Max(ActualWidth - KnobSize, 0);
-        _fill.Width = track * _level;
-        _knobAt.X = track * _level;
+        _fill.Width = track * _level / _most;
+        _knobAt.X = track * _level / _most;
+        _markAt.X = KnobSize / 2 + track / _most - 1;
     }
 
     private void Follow(PointerRoutedEventArgs e)
     {
         double track = Math.Max(ActualWidth - KnobSize, 1);
         double x = e.GetCurrentPoint(this).Position.X - KnobSize / 2;
-        Changed?.Invoke(this, Math.Clamp(x / track, 0, 1));
+        Changed?.Invoke(this, Math.Clamp(x / track, 0, 1) * _most);
     }
 }

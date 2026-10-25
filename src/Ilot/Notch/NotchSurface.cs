@@ -170,14 +170,18 @@ public sealed class NotchSurface
         }
     }
 
+    // Closed, a pod is no taller than the closed notch is now: as the pill gives way to its handle under the pointer, the
+    // pods hidden in its ends shrink with it, rather than hang below it as two bubbles.
+    private const string ClosedPod = "Min(cw, n.Height)";
+
     // The pod's live size and left edge: hidden in the closed pill's right end, it comes out as the notch opens and
     // settles a gap away from its right side.
-    private const string PodWidth = "Lerp(cw, ow, n.Progress)";
-    private const string PodLeft = "Lerp((n.HostWidth + n.Width) * 0.5 - cw, (n.HostWidth + n.Width) * 0.5 + gap, n.Progress)";
+    private const string PodWidth = "Lerp(" + ClosedPod + ", ow, n.Progress)";
+    private const string PodLeft = "Lerp((n.HostWidth + n.Width) * 0.5 - " + ClosedPod + ", (n.HostWidth + n.Width) * 0.5 + gap, n.Progress)";
 
     // The quick controls' pods, the mirror image on the left: hidden in the pill's left end, out a gap away; the second
     // drops below the first.
-    private const string QuickWidth = "Lerp(cw, qw, n.Progress)";
+    private const string QuickWidth = "Lerp(" + ClosedPod + ", qw, n.Progress)";
     private const string QuickLeft = "Lerp((n.HostWidth - n.Width) * 0.5, (n.HostWidth - n.Width) * 0.5 - gap - qw, n.Progress)";
     private const string QuickSecondTop = "(n.Inset + (qw + vg) * n.Progress)";
 

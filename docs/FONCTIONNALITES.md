@@ -83,7 +83,9 @@ Fonctionnalités :
 - **Paroles synchronisées**, affichées quand le morceau en a (bouton bulle au bout de la barre d'onglets pour
   les masquer ou les réafficher). Notch ouverte, colonne droite façon Apple Music : la ligne précédente et la
   suivante, plus petites et grisées, encadrent la ligne chantée ; chaque changement de ligne glisse sur le
-  compositeur. Notch fermée, la pilule s'élargit (380 px) et la ligne chantée remplace la barre de progression.
+  compositeur. Notch fermée, la pilule s'élargit (380 px) pour la ligne chantée ; sans paroles, elle ne montre que la
+  pochette et la mascotte (ou le visualiseur), resserrée sur elles sans espace vide (pas de barre de progression : celle
+  de la notch ouverte suffit).
   Une ligne trop longue défile pendant qu'elle est chantée au lieu d'être tronquée. Source : LRCLIB, mise en
   cache en mémoire. Au choix (Paramètres → Paroles), la ligne chantée va **dans la barre des tâches** plutôt que sur la
   notch fermée : à droite, contre les icônes, la pochette à côté (l'icône de l'appli qui joue sur son coin), la ligne
@@ -318,6 +320,13 @@ Fonctionnalités :
   Un clic droit sur le volume ouvre dessous un **mélangeur de volume** : chaque application qui fait du son (et les
   sons système), son icône (un clic coupe ou rétablit son son), son nom, un curseur fin de la couleur de la mascotte
   (glisser, cliquer, molette) et son pourcentage. Un nouveau clic droit le ferme, il se ferme aussi avec la notch.
+  En bas, le **booster** : son interrupteur allumé, les curseurs des applis vont jusqu'à **200 %** (un repère à 100 %,
+  légèrement aimanté ; le pourcentage d'une appli boostée prend la couleur de la mascotte). Rien à installer : Windows
+  baisse l'appli à 0,1 % et Ilot rejoue son son, intact, aussi fort que demandé (un limiteur évite la saturation, environ
+  75 ms de décalage : à éviter sur un jeu en compétition). Une appli à 100 % ou moins reste au son de Windows, sans
+  aucun coût ; l'interrupteur éteint, toutes reviennent à 100 % (leurs niveaux gardés pour la prochaine fois). Ilot rend
+  le son d'origine en quittant, ou au lancement suivant après un plantage ; bouger l'appli dans le mélangeur de Windows
+  met fin à son boost. Windows 11 nécessaire (la capture du son d'une appli).
 - **Appareil audio connecté / déconnecté** : quand Windows bascule sur une autre sortie (AirPods, casque Bluetooth ou
   USB, écouteurs branchés), la pilule fermée s'agrandit vers le bas, sous sa propre ligne (pochette, paroles,
   visualiseur), pour une carte « façon AirPods » : icône animée (deux ondes à la connexion), nom de l'appareil,

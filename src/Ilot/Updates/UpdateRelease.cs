@@ -10,7 +10,9 @@ public sealed record UpdateRelease(Version Version, string InstallerName, Uri In
 {
     /// <summary>
     /// The latest release as GitHub's API describes it (<c>releases/latest</c>: never a draft nor a pre-release);
-    /// <c>null</c> when its tag is not a version, or it has no installer to download from GitHub itself.
+    /// <c>null</c> when its tag is not a version, or it has no installer of that very version (« v1.0.1 »:
+    /// « Ilot-Setup-1.0.1.exe », else installing it would leave Ilot older than the tag, offered again and again) to
+    /// download from GitHub itself.
     /// </summary>
     public static UpdateRelease? Parse(string json)
     {
@@ -24,10 +26,11 @@ public sealed record UpdateRelease(Version Version, string InstallerName, Uri In
             return null;
         }
 
+        string expected = $"Ilot-Setup-{Normalize(version).ToString(3)}.exe";
         foreach (var asset in assets.EnumerateArray())
         {
             string name = asset.TryGetProperty("name", out var assetName) ? assetName.GetString() ?? "" : "";
-            if (!name.StartsWith("Ilot-Setup", StringComparison.OrdinalIgnoreCase) || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            if (!name.Equals(expected, StringComparison.OrdinalIgnoreCase)
                 || !asset.TryGetProperty("browser_download_url", out var url) || !Uri.TryCreate(url.GetString(), UriKind.Absolute, out var download)
                 || download.Scheme != Uri.UriSchemeHttps || !download.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
             {

@@ -111,6 +111,8 @@ public sealed class SettingsStore : IDisposable
                 settings.StudySection = stored.StudySection;
                 settings.StayOpenAfterClick = stored.StayOpenAfterClick;
                 settings.AutoUpdate = stored.AutoUpdate;
+                settings.BoostOn = stored.BoostOn;
+                settings.BoostLevels = stored.BoostLevels ?? new Dictionary<string, double>();
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -145,7 +147,7 @@ public sealed class SettingsStore : IDisposable
                 Settings.SearchShortcut, Settings.SearchShortcutOn, Settings.Welcomed, Settings.StudySounds, Settings.StudySoundVolume,
                 Settings.CourseWindowBounds, Settings.CourseWindowOnTop, Settings.NoteWindowBounds, Settings.NoteWindowOnTop,
                 Settings.LyricsPlace, Settings.LyricsTaskbarWidth, Settings.StudySection, Settings.StayOpenAfterClick,
-                Settings.HidePlayerInNotch, Settings.AutoUpdate);
+                Settings.HidePlayerInNotch, Settings.AutoUpdate, Settings.BoostOn, new Dictionary<string, double>(Settings.BoostLevels));
             File.WriteAllText(FilePath, JsonSerializer.Serialize(stored, Json));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -217,5 +219,7 @@ public sealed class SettingsStore : IDisposable
         long StudySection = 0,
         bool StayOpenAfterClick = true,
         bool HidePlayerInNotch = false,
-        bool AutoUpdate = true);
+        bool AutoUpdate = true,
+        bool BoostOn = false,
+        Dictionary<string, double>? BoostLevels = null);
 }

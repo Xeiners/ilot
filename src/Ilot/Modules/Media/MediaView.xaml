@@ -17,9 +17,6 @@
         <!--  Ambient light tinted with the colour of the cover, drawn by the compositor.  -->
         <Grid x:Name="GlowHost" IsHitTestVisible="False" />
 
-        <!--  Progress line of the collapsed pill, between the artwork and the visualizer (composition).  -->
-        <Grid x:Name="CompactProgressHost" IsHitTestVisible="False" />
-
         <!--  Collapsed pill with lyrics: the line being sung, between the artwork and the visualizer.  -->
         <!--  Width and position are set from the compact geometry in code.  -->
         <lyrics:LyricsPanel

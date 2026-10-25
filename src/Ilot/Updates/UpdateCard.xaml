@@ -52,10 +52,10 @@
                 MaxLines="1"
                 TextTrimming="CharacterEllipsis" />
             <TextBlock
+                x:Name="DetailText"
                 Style="{StaticResource NotchSubtitleTextStyle}"
                 FontSize="12"
                 MaxLines="1"
-                Text="Nouvelle version · quelques secondes"
                 TextTrimming="CharacterEllipsis" />
         </StackPanel>
 

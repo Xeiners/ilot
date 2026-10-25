@@ -45,6 +45,7 @@ public sealed class NotchContext
     private readonly Func<FrameworkElement, Windows.Foundation.Size, TimeSpan, bool, bool> _present;
     private readonly Func<FrameworkElement, Windows.Foundation.Size, IDisposable> _ask;
     private readonly Func<FrameworkElement, Windows.Foundation.Size, Windows.Foundation.Size?, Windows.Foundation.Size?, NotchBubble> _showBubble;
+    private readonly Action<bool> _hideTabs;
     private readonly SpringChannel _selected;
 
     internal NotchContext(
@@ -69,7 +70,8 @@ public sealed class NotchContext
         Action show,
         Func<FrameworkElement, Windows.Foundation.Size, TimeSpan, bool, bool> present,
         Func<FrameworkElement, Windows.Foundation.Size, IDisposable> ask,
-        Func<FrameworkElement, Windows.Foundation.Size, Windows.Foundation.Size?, Windows.Foundation.Size?, NotchBubble> showBubble)
+        Func<FrameworkElement, Windows.Foundation.Size, Windows.Foundation.Size?, Windows.Foundation.Size?, NotchBubble> showBubble,
+        Action<bool> hideTabs)
     {
         Motion = motion;
         ContentTop = contentTop;
@@ -93,6 +95,7 @@ public sealed class NotchContext
         _present = present;
         _ask = ask;
         _showBubble = showBubble;
+        _hideTabs = hideTabs;
 
         Selection = motion.Compositor.CreatePropertySet();
         Selection.InsertScalar("Direction", 1);
@@ -182,6 +185,12 @@ public sealed class NotchContext
         FrameworkElement content, Windows.Foundation.Size size, Windows.Foundation.Size? minimum = null, Windows.Foundation.Size? maximum = null) =>
         _showBubble(content, size, minimum, maximum);
 
+    /// <summary>
+    /// The module needs the open notch's top row (its search field, opened over the tabs): the tabs step aside while it
+    /// shows, and come back with <c>false</c>.
+    /// </summary>
+    public void HideTabs(bool hidden) => _hideTabs(hidden);
+
     /// <summary>Opens the notch on this module's tab (a shortcut…).</summary>
     public void Show() => _show();
 
@@ -219,8 +228,8 @@ public sealed class NotchContext
     }
 
     /// <summary>
-    /// Widens the compact pill to <paramref name="width"/> (like a live activity), or restores it with <c>null</c>.
-    /// The morph to the new width is animated.
+    /// Sizes the compact pill to <paramref name="width"/>: wider (the sung line), or narrower (just what it shows), or
+    /// back to its own with <c>null</c>. The widest request of the modules wins; the morph to it is animated.
     /// </summary>
     public void RequestCompactWidth(double? width) => _setCompactWidth(width ?? 0);
 

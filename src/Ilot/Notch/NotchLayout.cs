@@ -89,8 +89,9 @@ public sealed record NotchLayout
     private double MaxHeight => Math.Max(Expanded.Height, ExpandedMax.Height);
 
     /// <summary>
-    /// Shape at rest in <paramref name="phase"/>. A module may widen the compact notch (live lyrics…) with
-    /// <paramref name="compactWidth"/> (never narrower than the layout's own); <paramref name="expanded"/> is the open
+    /// Shape at rest in <paramref name="phase"/>. A module may size the compact notch with <paramref name="compactWidth"/>:
+    /// wider (live lyrics…) or narrower (just the artwork and the mascot), never less than round; 0: the layout's own
+    /// width. <paramref name="expanded"/> is the open
     /// shape as it is now (see <see cref="OpenShape"/>, or a module's own, like the search bar). <paramref name="handle"/>:
     /// the closed notch is the <see cref="Handle"/> (and nothing widens it); its input bounds, the handle's spot.
     /// </summary>
@@ -103,7 +104,10 @@ public sealed record NotchLayout
                 : Handle;
         }
 
-        var collapsed = Collapsed with { Width = Math.Clamp(compactWidth, Collapsed.Width, MaxWidth) };
+        var collapsed = Collapsed with
+        {
+            Width = compactWidth > 0 ? Math.Clamp(compactWidth, Collapsed.Height, MaxWidth) : Collapsed.Width,
+        };
         return phase switch
         {
             NotchPhase.Primed => new(collapsed.Width + PrimeGrowth, collapsed.Height + 3, collapsed.Radius + 1.5),

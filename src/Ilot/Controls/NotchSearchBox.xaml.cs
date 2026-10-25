@@ -131,6 +131,7 @@ public sealed partial class NotchSearchBox : UserControl
             IsOpen = true;
             SearchInput.IsHitTestVisible = true;
             _open?.AnimateTo(1, Motion.Toggle);
+            _context?.HideTabs(true); // Open, the field stretches over the tabs' row: they step aside meanwhile.
         }
 
         TakeKeyboard();
@@ -197,6 +198,7 @@ public sealed partial class NotchSearchBox : UserControl
         IsOpen = false;
         SearchInput.IsHitTestVisible = false;
         _open?.AnimateTo(0, Motion.Fade);
+        _context?.HideTabs(false);
     }
 
     /// <summary>The magnifier opens the field, or folds it away (and clears it) when it is open.</summary>

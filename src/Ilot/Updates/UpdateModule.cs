@@ -25,6 +25,13 @@ public sealed class UpdateModule(AppUpdater updater) : INotchModule
     {
         _context = context;
         updater.Ready += (_, _) => Ask();
+        updater.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AppUpdater.State) && updater.State != UpdateState.Ready)
+            {
+                Dismiss(); // Up to date after all (or looking again): nothing to offer any more.
+            }
+        };
         return new Grid { IsHitTestVisible = false };
     }
 
@@ -46,7 +53,7 @@ public sealed class UpdateModule(AppUpdater updater) : INotchModule
             _card.Later += (_, _) => Dismiss();
         }
 
-        _card.Show(version);
+        _card.Show(version, AppUpdater.Current);
         _question ??= context.Ask(_card, _card.CardSize);
     }
 

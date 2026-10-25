@@ -310,6 +310,22 @@ public sealed class AppSettings : ObservableObject
 
     private bool _stayOpenAfterClick = true;
     private bool _autoUpdate = true;
+    private bool _boostOn;
+    private IReadOnlyDictionary<string, double> _boostLevels = new Dictionary<string, double>();
+
+    /// <summary>The booster's switch, in the mixer (see Quick/SoundBooster): on, an app can be set past 100 %.</summary>
+    public bool BoostOn
+    {
+        get => _boostOn;
+        set => SetProperty(ref _boostOn, value);
+    }
+
+    /// <summary>The apps set past 100 %: their program (its path, in lower case) → their level (up to 2: 200 %).</summary>
+    public IReadOnlyDictionary<string, double> BoostLevels
+    {
+        get => _boostLevels;
+        set => SetProperty(ref _boostLevels, value);
+    }
 
     /// <summary>Ilot looks for its new versions on GitHub, downloads them and offers them (see Updates/AppUpdater).</summary>
     public bool AutoUpdate

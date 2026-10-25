@@ -35,12 +35,12 @@ public sealed partial class MediaView : UserControl
     private const float CompactInset = 6;
     private const float CompactEqualizerInset = 12;
     private const float CompactArtworkRadius = 6;
-    private const float CompactProgressThickness = 3;
-    private const float CompactProgressGap = 12;
+    private const float CompactGap = 12; // Between the sung line and the artwork, or the visualizer.
 
     // In lyrics mode the closed pill widens like a live activity, to give the sung line room. The open notch keeps
     // its size: lyrics only take the place of the title and the artist.
     private const double CompactLyricsWidth = 380;
+    private const double MascotRoom = 32; // The mascot at the closed pill's right end (NotchView: 28 px, 4 px from the end).
 
     // Smallest artwork corner radius, should the notch corners ever be tighter than the artwork margin.
     private const float MinArtworkRadius = 4;
@@ -97,8 +97,6 @@ public sealed partial class MediaView : UserControl
     private readonly SpriteVisual _glow;
     private readonly CompositionRadialGradientBrush _glowBrush;
     private readonly CompositionColorGradientStop[] _glowStops;
-    private readonly ShapeVisual _compactProgress;
-    private readonly CompositionColorBrush _compactProgressBrush;
     private readonly DispatcherQueueTimer _clock;
     private readonly Stopwatch _frameClock = new();
     private IDisposable? _scrubHold;
@@ -139,7 +137,6 @@ public sealed partial class MediaView : UserControl
         _pillLyrics = new SpringChannel(_state, "PillLyrics", InPill ? 1 : 0);
         _state.InsertScalar("KeepBack", 1);
         _state.InsertScalar("Bass", 0);
-        _state.InsertScalar("Progress", 0);
 
         _accentBrush = new SolidColorBrush(viewModel.Accent);
         _bars = CreateBars(Equalizer, CompactBarCount, BarWidth);
@@ -166,10 +163,6 @@ public sealed partial class MediaView : UserControl
         _glow = _compositor.CreateSpriteVisual();
         _glow.Brush = _glowBrush;
         ElementCompositionPreview.SetElementChildVisual(GlowHost, _glow);
-
-        _compactProgressBrush = _compositor.CreateColorBrush(viewModel.Accent);
-        _compactProgress = _compositor.CreateShapeVisual();
-        ElementCompositionPreview.SetElementChildVisual(CompactProgressHost, _compactProgress);
 
         _clock = DispatcherQueue.CreateTimer();
         _clock.Interval = ClockInterval;
@@ -206,6 +199,10 @@ public sealed partial class MediaView : UserControl
             {
                 ShowLyricsMode();
                 PlaceLyrics();
+            }
+            else if (e.PropertyName == nameof(AppSettings.ShowMascot))
+            {
+                SizePill(); // The pill's right end: the mascot, or the visualizer.
             }
             else if (e.PropertyName is nameof(AppSettings.HidePlayerInNotch) or nameof(AppSettings.HideWhenIdle))
             {
@@ -438,7 +435,6 @@ public sealed partial class MediaView : UserControl
         Bind("Clamp(m.Present, 0, 1) * Lerp(Clamp(m.Pill, 0, 1), 1, n.Progress) * (1 - Clamp(n.Toast, 0, 1) * (1 - n.Progress)) * Lerp(1 - n.Mascot, 1, n.Progress)")
             .Start(VisualOf(Equalizer), "Opacity");
 
-        BindCompactProgress(width, compactHeight, equalizerWidth);
         BindCompactLyrics(compactHeight, equalizerWidth);
 
         // Title, controls and timeline bloom in during the second half of the opening, and leave first.
@@ -461,71 +457,19 @@ public sealed partial class MediaView : UserControl
     }
 
     /// <summary>
-    /// Progress line of the collapsed pill: spans the space between the artwork and the visualizer, stretches with
-    /// the pill (hover swell included) and fades away as the notch opens, where the scrubber takes over.
-    /// </summary>
-    private void BindCompactProgress(float width, float compactHeight, float equalizerWidth)
-    {
-        const string Left = "((w - n.Width) * 0.5 + ch - ci + g)";
-        const string Length = "Max((w + n.Width) * 0.5 - ce - ew - g - " + Left + ", 0)";
-        const string Filled = "(" + Length + " * Clamp(m.Progress, 0, 1))";
-
-        _compactProgress.Size = new Vector2(width, (float)LayoutRoot.ActualHeight);
-        _compactProgress.Shapes.Clear();
-        _compactProgress.Shapes.Add(CreateLine(Length, _compositor.CreateColorBrush(Color.FromArgb(56, 255, 255, 255))));
-        _compactProgress.Shapes.Add(CreateLine(Filled, _compactProgressBrush));
-        // In lyrics mode the sung line takes its place (unless it goes on the taskbar).
-        Bind("Clamp(1 - n.Expansion * 3, 0, 1) * Clamp(m.Present, 0, 1) * Clamp(m.Pill, 0, 1) * Clamp(m.Timeline, 0, 1) * (1 - Clamp(m.PillLyrics, 0, 1))")
-            .Start(_compactProgress, "Opacity");
-
-        CompositionSpriteShape CreateLine(string length, CompositionBrush brush)
-        {
-            var line = _compositor.CreateRoundedRectangleGeometry();
-            Measure($"Vector2({length}, t)").Start(line, "Size");
-            Measure($"Vector2({Left}, (ch - t) * 0.5)").Start(line, "Offset");
-            Measure($"Vector2(Min(t * 0.5, {length} * 0.5), t * 0.5)").Start(line, "CornerRadius");
-            var shape = _compositor.CreateSpriteShape(line);
-            shape.FillBrush = brush;
-            return shape;
-        }
-
-        CompositionExpression Measure(string expression) => Bind(expression)
-            .With("w", width).With("ch", compactHeight).With("ci", CompactInset)
-            .With("ce", CompactEqualizerInset).With("ew", equalizerWidth)
-            .With("g", CompactProgressGap).With("t", CompactProgressThickness);
-    }
-
-    /// <summary>
-    /// The sung line inside the widened pill: it fills the space between the artwork and the visualizer, sits a
-    /// little above the centre (the progress line runs underneath) and fades away as the notch opens.
+    /// The sung line inside the widened pill (the only thing between the artwork and the visualizer: without lyrics, the
+    /// pill shows no progress line, the open notch's scrubber says it): it fills that space and fades away as the notch
+    /// opens.
     /// </summary>
     private void BindCompactLyrics(float compactHeight, float equalizerWidth)
     {
-        double left = compactHeight - CompactInset + CompactProgressGap;
-        double right = CompactEqualizerInset + equalizerWidth + CompactProgressGap;
+        double left = compactHeight - CompactInset + CompactGap;
+        double right = CompactEqualizerInset + equalizerWidth + CompactGap;
         CompactLyrics.Width = Math.Max(CompactLyricsWidth - left - right, 0);
 
         var visual = VisualOf(CompactLyrics);
         visual.Properties.InsertVector3("Translation", new Vector3((float)(left - right) / 2, 0, 0));
         Bind("Clamp(1 - n.Expansion * 3, 0, 1) * Clamp(m.Present, 0, 1) * Clamp(m.Pill, 0, 1) * Clamp(m.PillLyrics, 0, 1)").Start(visual, "Opacity");
-    }
-
-    /// <summary>The compact line glides on the compositor, like the scrubber: one animation per player update.</summary>
-    private void GlideCompactProgress(double progress, TimeSpan remaining, bool playing)
-    {
-        _state.StopAnimation("Progress");
-        _state.InsertScalar("Progress", (float)progress);
-        if (!playing || progress >= 1 || remaining <= TimeSpan.Zero)
-        {
-            return;
-        }
-
-        var linear = _compositor.CreateLinearEasingFunction();
-        var glide = _compositor.CreateScalarKeyFrameAnimation();
-        glide.InsertKeyFrame(0, (float)progress, linear);
-        glide.InsertKeyFrame(1, 1, linear);
-        glide.Duration = remaining < TimeSpan.FromMilliseconds(1) ? TimeSpan.FromMilliseconds(1) : remaining;
-        _state.StartAnimation("Progress", glide);
     }
 
     /// <summary>
@@ -565,6 +509,33 @@ public sealed partial class MediaView : UserControl
     {
         _pill.AnimateTo(PillShown ? 1 : 0, Motion.Fade);
         ShowPresence();
+        SizePill();
+    }
+
+    /// <summary>
+    /// The closed pill as wide as what the player shows on it: the sung line (wide); else only the artwork and, at the
+    /// other end, the mascot or the visualizer, side by side, with no empty room between them. No track (or the player
+    /// elsewhere): the notch's own width.
+    /// </summary>
+    private void SizePill()
+    {
+        double? width = !ViewModel.HasMedia || !PillShown ? null
+            : InPill ? CompactLyricsWidth
+            : NarrowPill;
+        _context.RequestCompactWidth(width);
+    }
+
+    /// <summary>The artwork, a gap, then the mascot (or, without it, the visualizer).</summary>
+    private double NarrowPill
+    {
+        get
+        {
+            double artwork = _motion.Layout.Collapsed.Height - CompactInset;
+            double end = _settings.ShowMascot
+                ? MascotRoom
+                : _bars.Length * BarWidth + (_bars.Length - 1) * Equalizer.Spacing + CompactEqualizerInset;
+            return artwork + CompactGap + end;
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -574,6 +545,7 @@ public sealed partial class MediaView : UserControl
             case nameof(MediaViewModel.HasMedia):
                 _present.AnimateTo(ViewModel.HasMedia ? 1 : 0, Motion.Fade);
                 ShowPresence();
+                SizePill();
                 break;
 
             case nameof(MediaViewModel.IsPlaying):
@@ -654,7 +626,7 @@ public sealed partial class MediaView : UserControl
     {
         _lyricsShown.AnimateTo(Lyrics.IsShown ? 1 : 0, Motion.Fade);
         _pillLyrics.AnimateTo(InPill ? 1 : 0, Motion.Fade);
-        _context.RequestCompactWidth(InPill ? CompactLyricsWidth : null);
+        SizePill();
 
         // The lyrics button is lit while lyrics are on, dimmed when they are off.
         LyricsGlyph.Opacity = Lyrics.IsEnabled ? 1 : 0.45;
@@ -850,7 +822,6 @@ public sealed partial class MediaView : UserControl
         if (!timeline.IsKnown)
         {
             TimelineScrubber.ShowProgress(0, TimeSpan.Zero, isPlaying: false);
-            GlideCompactProgress(0, TimeSpan.Zero, playing: false);
             UpdateClock();
             return;
         }
@@ -860,7 +831,6 @@ public sealed partial class MediaView : UserControl
         double rate = Math.Max(timeline.PlaybackRate, 0.01);
         var remaining = TimeSpan.FromSeconds((timeline.Duration - position).TotalSeconds / rate);
         TimelineScrubber.ShowProgress(position / timeline.Duration, remaining, playing);
-        GlideCompactProgress(position / timeline.Duration, remaining, playing);
 
         bool hours = timeline.Duration.TotalHours >= 1;
         ElapsedColumn.Width = new GridLength(hours ? 40 : 28);
@@ -938,11 +908,6 @@ public sealed partial class MediaView : UserControl
         storyboard.Children.Add(ColorTo(_accentBrush, accent));
         storyboard.Begin();
         SetGlowColor(accent, animate: true);
-
-        var fade = _compositor.CreateColorKeyFrameAnimation();
-        fade.InsertKeyFrame(1, accent, _compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0), new Vector2(0, 1)));
-        fade.Duration = TimeSpan.FromMilliseconds(700);
-        _compactProgressBrush.StartAnimation("Color", fade);
     }
 
     /// <summary>

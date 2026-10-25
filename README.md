@@ -23,6 +23,8 @@ ailleurs. Notch vit dedans : elle danse sur votre musique, réagit à vos copies
 - **Révisions** : un cours devient une fiche, des flashcards et des cartes mentales, rangés par matière.
 - **Recherche** (Ctrl + Q) : une appli, un fichier, un calcul, une page web.
 - **Assistant IA** : cliquez sur Notch et posez votre question, par écrit ou à voix haute.
+- **Volume** : à gauche de la notch ouverte, le son et la luminosité ; clic droit sur le volume, le volume de chaque appli
+  et un **booster** : une appli jusqu'à 200 % (Discord à 150 %…), sans rien installer (Windows 11).
 
 ## Paramètres
 

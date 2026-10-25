@@ -74,6 +74,9 @@ public partial class App : Application
             };
             updater.Start();
 
+            // The apps boosted past 100 % are again; what a crash left down is given back.
+            _services.GetRequiredService<SoundBooster>().Start();
+
             // The first launch after the installation: a few steps to set it up, then its tour.
             if (!_services.GetRequiredService<AppSettings>().Welcomed)
             {
@@ -125,6 +128,7 @@ public partial class App : Application
         services.AddSingleton<VolumeWatcher>();
         services.AddSingleton<BrightnessService>();
         services.AddSingleton<VolumeMixer>();
+        services.AddSingleton<SoundBooster>();
         services.AddSingleton<QuickServices>();
         services.AddSingleton<ILyricsService, LrcLibLyricsService>();
         services.AddSingleton<LyricsViewModel>();

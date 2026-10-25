@@ -37,10 +37,11 @@ public sealed partial class UpdateCard : UserControl
     /// <summary>Not now: it goes in the next time Ilot starts.</summary>
     public event EventHandler? Later;
 
-    /// <summary>« Ilot 1.0.1 est prête ».</summary>
-    public void Show(Version version)
+    /// <summary>« Ilot 1.0.1 est prête », « Vous avez la 1.0.0 · quelques secondes ».</summary>
+    public void Show(Version version, Version current)
     {
         TitleText.Text = Loc.F("Ilot {0} est prête", version.ToString(3));
+        DetailText.Text = Loc.F("Vous avez la {0} · quelques secondes", current.ToString(3));
         AutomationProperties.SetName(this, TitleText.Text);
     }
 
