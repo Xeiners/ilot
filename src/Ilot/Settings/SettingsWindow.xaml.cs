@@ -45,7 +45,8 @@ public sealed partial class SettingsWindow : Window
 
     public SettingsWindow(
         AppSettings settings, ClipboardHistory clipboard, ClipboardShortcut shortcut, EverythingEngine everything,
-        ApiKeyStore keys, GeminiClient gemini, AssistantShortcut assistantShortcut, SearchShortcut searchShortcut)
+        ApiKeyStore keys, GeminiClient gemini, AssistantShortcut assistantShortcut, SearchShortcut searchShortcut,
+        Ilot.Updates.AppUpdater updater)
     {
         Settings = settings;
         _clipboard = clipboard;
@@ -55,6 +56,7 @@ public sealed partial class SettingsWindow : Window
         _gemini = gemini;
         _assistantShortcut = assistantShortcut;
         _searchShortcut = searchShortcut;
+        Updater = updater;
         InitializeComponent();
         Loc.Apply(this); // English, if so: its texts translated in place.
         Sections.SelectedItem = Sections.MenuItems[0]; // General first.
@@ -515,6 +517,21 @@ public sealed partial class SettingsWindow : Window
 
     /// <summary>The preview of the line on the closed notch, when it goes there.</summary>
     public Visibility InNotch(string place) => place == AppSettings.LyricsInTaskbar ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>The updates (GitHub's releases): where they stand, looked for, installed.</summary>
+    public Ilot.Updates.AppUpdater Updater { get; }
+
+    /// <summary>« Rechercher »: not while it looks or downloads already.</summary>
+    public bool CanCheck(Ilot.Updates.UpdateState state) =>
+        state is not (Ilot.Updates.UpdateState.Checking or Ilot.Updates.UpdateState.Downloading);
+
+    /// <summary>« Installer »: a new version downloaded, ready.</summary>
+    public Visibility ReadyToInstall(Ilot.Updates.UpdateState state) =>
+        state == Ilot.Updates.UpdateState.Ready ? Visibility.Visible : Visibility.Collapsed;
+
+    private async void OnCheckUpdatesClick(object sender, RoutedEventArgs e) => await Updater.CheckAsync();
+
+    private void OnInstallUpdateClick(object sender, RoutedEventArgs e) => Updater.Install();
 
     /// <summary>« Ilot 1.0.0 »: the version, as built (Directory.Build.props).</summary>
     public string AboutTitle => $"Ilot {typeof(App).Assembly.GetName().Version?.ToString(3)}";

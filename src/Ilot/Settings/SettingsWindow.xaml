@@ -339,6 +339,66 @@
                         </Grid>
                     </Border>
 
+                    <!--  Updates: from GitHub's releases, automatically or on demand.  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16" RowSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE896;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Mettre à jour automatiquement" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Ilot cherche ses nouvelles versions sur GitHub, les télécharge et vous les propose sur la notch. Plus tard : elles s'installent au prochain démarrage."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                IsOn="{x:Bind Settings.AutoUpdate, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                            <Grid
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="2"
+                                ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind Updater.StatusText, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                                <Button
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Click="OnCheckUpdatesClick"
+                                    Content="Rechercher"
+                                    IsEnabled="{x:Bind CanCheck(Updater.State), Mode=OneWay}" />
+                                <Button
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Click="OnInstallUpdateClick"
+                                    Content="Installer"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Visibility="{x:Bind ReadyToInstall(Updater.State), Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
                     <!--  About: the version, who made it, its licence.  -->
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Grid ColumnSpacing="16">

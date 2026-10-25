@@ -109,6 +109,7 @@ public sealed class SettingsStore : IDisposable
                 settings.HidePlayerInNotch = stored.HidePlayerInNotch;
                 settings.StudySection = stored.StudySection;
                 settings.StayOpenAfterClick = stored.StayOpenAfterClick;
+                settings.AutoUpdate = stored.AutoUpdate;
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -143,7 +144,7 @@ public sealed class SettingsStore : IDisposable
                 Settings.SearchShortcut, Settings.SearchShortcutOn, Settings.Welcomed, Settings.StudySounds, Settings.StudySoundVolume,
                 Settings.CourseWindowBounds, Settings.CourseWindowOnTop, Settings.NoteWindowBounds, Settings.NoteWindowOnTop,
                 Settings.LyricsPlace, Settings.LyricsTaskbarWidth, Settings.StudySection, Settings.StayOpenAfterClick,
-                Settings.HidePlayerInNotch);
+                Settings.HidePlayerInNotch, Settings.AutoUpdate);
             File.WriteAllText(FilePath, JsonSerializer.Serialize(stored, Json));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -214,5 +215,6 @@ public sealed class SettingsStore : IDisposable
         double LyricsTaskbarWidth = 300,
         long StudySection = 0,
         bool StayOpenAfterClick = true,
-        bool HidePlayerInNotch = false);
+        bool HidePlayerInNotch = false,
+        bool AutoUpdate = true);
 }

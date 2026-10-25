@@ -1058,6 +1058,22 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
 
 ## 7. Pièges déjà rencontrés
 
+- **Mises à jour automatiques** (`Updates/`, jamais vues à l'écran) : `AppUpdater` lit la dernière Release de
+  GitHub (`api.github.com/repos/Xeiners/ilot/releases/latest`, sans clé : brouillons et pré-versions ignorés ; 404 = aucune
+  Release, « à jour »), 30 s après le démarrage puis toutes les 6 h (une minuterie, rien entre deux), si
+  `AppSettings.AutoUpdate` (Paramètres → Général) et seulement pour une copie **installée** (`unins000.exe` à côté :
+  jamais `dotnet run`, qui dit seulement qu'une version est sortie). `UpdateRelease.Parse` (testé : scratchpad
+  `updatetest`) : le tag `vX.Y.Z` comparé à la version compilée (`Directory.Build.props`, sur trois parties), l'installateur
+  `Ilot-Setup-*.exe` téléchargé seulement depuis `https://github.com`. Téléchargé dans `%LOCALAPPDATA%\Ilot\Updates`
+  (`.part`, puis vérifié : taille, et SHA-256 quand GitHub donne `digest`), il est proposé sur la notch fermée
+  (`UpdateModule`, module sans onglet : `NotchContext.Ask` avec `UpdateCard`, « Plus tard » / « Installer ») et dans la
+  carte des Paramètres. Installer : l'installateur en silencieux (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+  /CLOSEAPPLICATIONS`, plus `/ALLUSERS` si Ilot est installé hors de `%LOCALAPPDATA%`), le mutex lâché (`Installing`),
+  puis Ilot quitte ; `Ilot.iss` attend jusqu'à 10 s que le mutex disparaisse (`[Code] InitializeSetup`) et relance Ilot
+  en silencieux (`[Run] … Check: WizardSilent`, `runasoriginaluser`). « Plus tard » : au prochain démarrage, une seule fois
+  automatiquement (marque `.tried`) ; si ça n'a pas pris, elle est proposée au lieu d'être retentée à chaque lancement.
+  **Publier une version** : changer `<Version>` dans `Directory.Build.props`, `installer\build.ps1`, puis une Release au
+  tag `vX.Y.Z` avec le fichier `Ilot-Setup-X.Y.Z.exe` (nom exact), ni brouillon ni pré-version.
 - **Licence** : MIT, Copyright (c) 2026 Xeiners (`LICENSE`, texte MIT standard en ASCII et CRLF : GitHub la reconnaît,
   et la page de licence de l'installateur, `LicenseFile`, l'affiche bien). Les composants tiers (tous MIT) sont dans
   `THIRD-PARTY-NOTICES.md` ; les deux fichiers sont copiés à côté d'`Ilot.exe` (`Ilot.csproj`). Éditeur « Xeiners » dans

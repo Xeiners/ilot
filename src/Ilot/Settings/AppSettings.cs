@@ -309,6 +309,14 @@ public sealed class AppSettings : ObservableObject
     private double _idleSeconds = 180;
 
     private bool _stayOpenAfterClick = true;
+    private bool _autoUpdate = true;
+
+    /// <summary>Ilot looks for its new versions on GitHub, downloads them and offers them (see Updates/AppUpdater).</summary>
+    public bool AutoUpdate
+    {
+        get => _autoUpdate;
+        set => SetProperty(ref _autoUpdate, value);
+    }
 
     /// <summary>
     /// Opened by hovering, the notch closes as the pointer leaves; once clicked in, it stays open until a click outside

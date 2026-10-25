@@ -1,0 +1,100 @@
+<UserControl
+    x:Class="Ilot.Updates.UpdateCard"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Ilot.Controls"
+    Width="392"
+    Height="52">
+
+    <!--
+        A new version, ready, the way an incoming call shows on the Dynamic Island: what it is, then later (grey) or
+        install (green).
+    -->
+    <Grid ColumnSpacing="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <Grid
+            x:Name="IconStage"
+            Width="44"
+            Height="44"
+            VerticalAlignment="Center">
+            <Ellipse>
+                <Ellipse.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Offset="0" Color="#55FFFFFF" />
+                        <GradientStop Offset="1" Color="#14FFFFFF" />
+                    </LinearGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+            <FontIcon
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontSize="19"
+                Foreground="White"
+                Glyph="&#xE896;" />
+        </Grid>
+
+        <StackPanel
+            x:Name="Details"
+            Grid.Column="1"
+            VerticalAlignment="Center"
+            Spacing="1">
+            <TextBlock
+                x:Name="TitleText"
+                FontFamily="Segoe UI Variable Display"
+                FontSize="15"
+                FontWeight="SemiBold"
+                Foreground="White"
+                MaxLines="1"
+                TextTrimming="CharacterEllipsis" />
+            <TextBlock
+                Style="{StaticResource NotchSubtitleTextStyle}"
+                FontSize="12"
+                MaxLines="1"
+                Text="Nouvelle version · quelques secondes"
+                TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <StackPanel
+            x:Name="Answers"
+            Grid.Column="2"
+            VerticalAlignment="Center"
+            Orientation="Horizontal"
+            Spacing="8">
+            <controls:MotionButton
+                MinWidth="0"
+                Padding="12,0"
+                AutomationProperties.Name="Plus tard"
+                Background="#26FFFFFF"
+                Click="OnLaterClick"
+                HaloOpacity="0.1"
+                HaloRestScale="1"
+                HoverScale="0.05"
+                PressScale="0.08"
+                Style="{StaticResource NotchPillButtonStyle}">
+                <TextBlock Text="Plus tard" />
+            </controls:MotionButton>
+            <controls:MotionButton
+                MinWidth="0"
+                Padding="12,0"
+                AutomationProperties.Name="Installer"
+                Background="#FF34C759"
+                Click="OnInstallClick"
+                Foreground="Black"
+                HaloOpacity="0.18"
+                HaloRestScale="1"
+                HoverScale="0.05"
+                PressScale="0.08"
+                Style="{StaticResource NotchPillButtonStyle}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon FontSize="11" Glyph="&#xE896;" />
+                    <TextBlock Text="Installer" />
+                </StackPanel>
+            </controls:MotionButton>
+        </StackPanel>
+    </Grid>
+</UserControl>

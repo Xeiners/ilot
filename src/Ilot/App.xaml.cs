@@ -65,6 +65,15 @@ public partial class App : Application
             window.SettingsRequested += (_, _) => ShowSettings();
             window.ShowNotch();
 
+            // Updates (GitHub's releases): a version put off goes in now; the checks start.
+            var updater = _services.GetRequiredService<Ilot.Updates.AppUpdater>();
+            updater.Installing += (_, _) =>
+            {
+                _singleInstance?.Dispose(); // The installer waits for Ilot to be gone (its mutex).
+                _singleInstance = null;
+            };
+            updater.Start();
+
             // The first launch after the installation: a few steps to set it up, then its tour.
             if (!_services.GetRequiredService<AppSettings>().Welcomed)
             {
@@ -177,6 +186,10 @@ public partial class App : Application
         services.AddSingleton<AssistantShortcut>();
         services.AddSingleton<AssistantModule>();
         services.AddSingleton<INotchModule>(provider => provider.GetRequiredService<AssistantModule>());
+
+        // Updates: GitHub's releases looked for, downloaded, offered on the closed notch (no tab).
+        services.AddSingleton<Ilot.Updates.AppUpdater>();
+        services.AddSingleton<INotchModule, Ilot.Updates.UpdateModule>();
 
         // Shell
         services.AddSingleton<NotchView>();

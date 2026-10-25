@@ -485,6 +485,25 @@ internal static partial class English
         ["Lancer avec Windows"] = "Start with Windows",
         ["À l'ouverture de votre session, la notch est là, sans rien d'autre à l'écran."] = "When you sign in, the notch is there, with nothing else on screen.",
         ["Se cacher au repos"] = "Hide when idle",
+
+        // Updates (Updates/AppUpdater, UpdateCard, the settings)
+        ["Mettre à jour automatiquement"] = "Update automatically",
+        ["Ilot cherche ses nouvelles versions sur GitHub, les télécharge et vous les propose sur la notch. Plus tard : elles s'installent au prochain démarrage."] = "Ilot looks for its new versions on GitHub, downloads them and offers them on the notch. Later: they install at the next start.",
+        ["Installer"] = "Install",
+        ["Recherche d'une mise à jour…"] = "Looking for an update…",
+        ["Ilot {0} est sortie. Cette copie (lancée depuis les sources) ne se met pas à jour toute seule."] = "Ilot {0} is out. This copy (run from the sources) does not update itself.",
+        ["Impossible de vérifier les mises à jour pour l'instant : nouvel essai plus tard."] = "Updates cannot be checked right now: trying again later.",
+        ["La mise à jour n'a pas pu démarrer."] = "The update could not start.",
+        ["Téléchargement d'Ilot {0}…"] = "Downloading Ilot {0}…",
+        ["Téléchargement d'Ilot {0}… {1} %"] = "Downloading Ilot {0}… {1} %",
+        ["Ilot {0} est prête : elle s'installe en quelques secondes."] = "Ilot {0} is ready: it installs in a few seconds.",
+        ["Ilot {0} est à jour."] = "Ilot {0} is up to date.",
+        ["Ilot {0}."] = "Ilot {0}.",
+        ["Ilot {0}, lancée depuis les sources : seule la version installée se met à jour toute seule."] = "Ilot {0}, run from the sources: only the installed version updates itself.",
+        ["Nouvelle version · quelques secondes"] = "New version · a few seconds",
+        ["Ilot {0} est prête"] = "Ilot {0} is ready",
+        ["Mise à jour"] = "Update",
+
         ["Développé par Xeiners, sous licence MIT."] = "Developed by Xeiners, under the MIT licence.",
         ["github.com/Xeiners"] = "github.com/Xeiners",
 

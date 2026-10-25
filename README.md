@@ -30,7 +30,7 @@ Clic droit sur la notch → **Paramètres**.
 
 | Section | Réglages |
 |---|---|
-| Général | Langue · Lancer avec Windows · Mode minimisé · Rester ouverte après un clic · Se cacher au repos (et son délai) · Mascotte et sa couleur · Masquer en plein écran · Accueil et visite guidée |
+| Général | Langue · Lancer avec Windows · Mode minimisé · Rester ouverte après un clic · Se cacher au repos (et son délai) · Mascotte et sa couleur · Masquer en plein écran · Accueil et visite guidée · Mises à jour automatiques |
 | Poignée | Largeur de la poignée · Zone de détection |
 | Recherche | Raccourci · Écran où elle s'ouvre · Garder la dernière recherche · Everything · Où chercher · Nombre de résultats · Dossiers ignorés |
 | Paroles | Afficher les paroles · Ligne chantée (notch ou barre des tâches) · Largeur dans la barre des tâches · Retirer le lecteur de la notch fermée · Taille du texte |
@@ -44,7 +44,11 @@ L'assistant et les révisions utilisent Google Gemini, avec une clé gratuite
 
 ## Installer
 
-Windows 11, x64. Lancez `Ilot-Setup-<version>.exe` : pas de droits administrateur, rien d'autre à installer.
+Windows 11, x64. Téléchargez `Ilot-Setup-<version>.exe` dans les [Releases](https://github.com/Xeiners/ilot/releases) et
+lancez-le : pas de droits administrateur, rien d'autre à installer.
+
+Ilot se met ensuite à jour tout seul : chaque nouvelle version publiée ici est téléchargée en arrière-plan et proposée
+sur la notch (« Installer » ou « Plus tard », et alors au prochain démarrage).
 
 ## Compiler
 
@@ -61,6 +65,10 @@ powershell -ExecutionPolicy Bypass -File installer\build.ps1
 ```
 
 Il sort dans `artifacts\Ilot-Setup-<version>.exe`.
+
+Pour publier une nouvelle version : changez `<Version>` dans `Directory.Build.props` (par exemple `1.0.1`), construisez
+l'installateur, puis créez une Release avec le tag `v1.0.1` et le fichier `Ilot-Setup-1.0.1.exe` : les Ilot installés
+la trouvent d'eux-mêmes.
 
 ## Licence
 

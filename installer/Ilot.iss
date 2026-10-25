@@ -69,7 +69,25 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\Ilot.exe"; Description: "Lancer Ilot maintenant"; Flags: nowait postinstall skipifsilent
+; An update (Ilot runs this installer silently, then quits): Ilot starts again, as the user, once it is done.
+Filename: "{app}\Ilot.exe"; Flags: nowait runasoriginaluser; Check: WizardSilent
 
 [UninstallRun]
 ; Turned on from the app's settings rather than here: removed all the same.
 Filename: "{sys}\reg.exe"; Parameters: "delete ""HKCU\Software\Microsoft\Windows\CurrentVersion\Run"" /v Ilot /f"; Flags: runhidden; RunOnceId: "RemoveStartup"
+
+[Code]
+// An update started by Ilot itself: it quits right after starting this installer. Give it a few seconds to be gone
+// (its single-instance mutex) before Setup checks for it (AppMutex).
+function InitializeSetup(): Boolean;
+var
+  Waited: Integer;
+begin
+  Waited := 0;
+  while CheckForMutexes('Local\Ilot.SingleInstance') and (Waited < 10000) do
+  begin
+    Sleep(250);
+    Waited := Waited + 250;
+  end;
+  Result := True;
+end;
