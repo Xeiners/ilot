@@ -8,7 +8,7 @@ using NAudio.CoreAudioApi.Interfaces;
 namespace Ilot.Quick;
 
 /// <summary>
-/// Apps louder than Windows lets them be (up to 200 %), nothing to install: an app set past 100 % in the mixer has its
+/// Apps louder than Windows lets them be (up to 300 %), nothing to install: an app set past 100 % in the mixer has its
 /// sessions put down to <see cref="BoostStream.Floor"/> (its sound 60 dB down, losslessly), and Ilot plays its sound again
 /// as loud as asked (<see cref="BoostStream"/>: Windows' capture of a process, then a gain and a limiter). The others are
 /// left to Windows: nothing runs for them, nor at all when no app is boosted.
@@ -22,8 +22,8 @@ namespace Ilot.Quick;
 /// </summary>
 public sealed class SoundBooster : IDisposable
 {
-    /// <summary>The loudest an app can be: 200 %.</summary>
-    public const double Most = 2;
+    /// <summary>The loudest an app can be: 300 %.</summary>
+    public const double Most = 3;
 
     /// <summary>The capture of a process's sound: Windows 11 (and Windows Server 2022, the same build).</summary>
     public static bool IsSupported { get; } = Environment.OSVersion.Version.Build >= 20348;

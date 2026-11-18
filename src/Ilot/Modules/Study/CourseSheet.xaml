@@ -541,6 +541,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <ScrollViewer
                         HorizontalScrollBarVisibility="Hidden"
@@ -549,9 +550,21 @@
                         VerticalScrollMode="Disabled">
                         <StackPanel x:Name="SheetParts" Orientation="Horizontal" Spacing="6" />
                     </ScrollViewer>
+                    <!--  Writes the sheet again (two clicks, as it asks Notch): the cards stay.  -->
+                    <controls:MotionButton
+                        x:Name="RewriteSheetButton"
+                        Grid.Column="1"
+                        Click="OnRewriteSheetClick"
+                        Style="{StaticResource StudyPillStyle}"
+                        ToolTipService.ToolTip="Notch réécrit la fiche : formules, parties. Les cartes restent.">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon FontSize="12" Glyph="&#xE72C;" />
+                            <TextBlock x:Name="RewriteSheetText" Text="Refaire la fiche" />
+                        </StackPanel>
+                    </controls:MotionButton>
                     <controls:MotionButton
                         x:Name="CopySummaryButton"
-                        Grid.Column="1"
+                        Grid.Column="2"
                         Click="OnCopySummaryClick"
                         Style="{StaticResource StudyPillStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="6">

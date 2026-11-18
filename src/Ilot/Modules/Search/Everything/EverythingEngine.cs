@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 using Microsoft.UI.Dispatching;
 using Ilot.Interop;
+using Ilot.Settings;
 
 namespace Ilot.Modules.Search.Everything;
 
@@ -39,22 +41,49 @@ public sealed class EverythingEngine : IDisposable
     private static readonly TimeSpan CheckEvery = TimeSpan.FromMilliseconds(400);
     private static readonly TimeSpan GiveUpAfter = TimeSpan.FromMinutes(2);
 
+    /// <summary>The ignored folders changed in the settings: the index follows once the typing is over.</summary>
+    private static readonly TimeSpan ReindexAfter = TimeSpan.FromSeconds(4);
+
     private static readonly string DataFolder = Path.Combine(
         AppData.Folder, "Everything");
 
+    private readonly AppSettings _settings;
     private readonly EverythingClient _client = new();
     private readonly DispatcherQueueTimer _watch;
+    private readonly DispatcherQueueTimer _reindex;
     private Process? _own;
     private long _watchingSince;
     private bool _checking;
     private EverythingStatus _status = EverythingStatus.Unavailable;
 
-    public EverythingEngine(DispatcherQueue dispatcher)
+    public EverythingEngine(DispatcherQueue dispatcher, AppSettings settings)
     {
+        _settings = settings;
+
         // Only while Everything starts: once its index is ready, nothing runs any more.
         _watch = dispatcher.CreateTimer();
         _watch.Interval = CheckEvery;
         _watch.Tick += (_, _) => Check();
+
+        // What the search ignores is not indexed either (see Excluded): changed, the copy starts again with it.
+        _reindex = dispatcher.CreateTimer();
+        _reindex.Interval = ReindexAfter;
+        _reindex.IsRepeating = false;
+        _reindex.Tick += async (_, _) =>
+        {
+            if (_own is not null && File.Exists(MarkerPath) && File.ReadAllText(MarkerPath) != Marker(IsFullSpeed))
+            {
+                await RestartOwnAsync();
+            }
+        };
+        settings.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AppSettings.SearchExclusions))
+            {
+                _reindex.Stop();
+                _reindex.Start();
+            }
+        };
     }
 
     /// <summary>The copy shipped with the notch, next to it.</summary>
@@ -88,8 +117,15 @@ public sealed class EverythingEngine : IDisposable
         nint running = EverythingClient.FindEverything();
         if (running != 0)
         {
-            // The notch's own copy, left running (the notch did not close properly): it is the notch's again.
+            // The notch's own copy, left running (the notch did not close properly): it is the notch's again. Started with
+            // other settings (an older Ilot, other ignored folders): started again with these.
             _own ??= OwnCopy(running);
+            if (_own is not null && (!File.Exists(MarkerPath) || File.ReadAllText(MarkerPath) != Marker(IsFullSpeed)))
+            {
+                _ = RestartOwnAsync();
+                return;
+            }
+
             Watch();
             return;
         }
@@ -105,7 +141,7 @@ public sealed class EverythingEngine : IDisposable
         {
             Directory.CreateDirectory(DataFolder);
             string settings = Path.Combine(DataFolder, "Everything.ini");
-            WriteSettings(settings, IsFullSpeed);
+            WriteSettings(settings);
             var start = new ProcessStartInfo(BundledPath)
             {
                 UseShellExecute = false,
@@ -127,6 +163,22 @@ public sealed class EverythingEngine : IDisposable
     /// Files and folders for <paramref name="search"/> (Everything's syntax), most recently changed first; <c>null</c>
     /// when no Everything answers (it is started again for next time), or when a newer search replaced this one.
     /// </summary>
+    /// <summary>
+    /// <paramref name="search"/> as Everything reads it, minus the folders left out (<paramref name="exclusions"/>, one per
+    /// line, as the settings keep them): the search bar's and the assistant's alike.
+    /// </summary>
+    public static string WithExclusions(string search, string exclusions)
+    {
+        var query = new StringBuilder(search.Trim());
+        // One per line: "\n" as saved, "\r" as the settings' text field writes them.
+        foreach (string line in exclusions.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            query.Append(" !\"").Append(line.Replace("\"", "", StringComparison.Ordinal)).Append('"');
+        }
+
+        return query.ToString();
+    }
+
     public async Task<IReadOnlyList<EverythingItem>?> SearchAsync(string search, int maxResults)
     {
         var items = await _client.QueryAsync(search, maxResults);
@@ -251,10 +303,28 @@ public sealed class EverythingEngine : IDisposable
             return; // The user's own Everything: theirs to restart.
         }
 
-        StopOwn();
+        // Gone for good before its settings are written again: leaving, it writes its own (the old ones) over them.
+        var leaving = StopOwn(keep: true);
         for (int i = 0; i < 20 && EverythingClient.FindEverything() != 0; i++)
         {
             await Task.Delay(150);
+        }
+
+        if (leaving is not null)
+        {
+            try
+            {
+                using var patience = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await leaving.WaitForExitAsync(patience.Token);
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException or Win32Exception)
+            {
+                Debug.WriteLine($"[Everything] Still leaving: {ex.Message}");
+            }
+            finally
+            {
+                leaving.Dispose();
+            }
         }
 
         Start();
@@ -286,12 +356,15 @@ public sealed class EverythingEngine : IDisposable
         return null;
     }
 
-    /// <summary>Closes the notch's copy (never the user's own Everything); its index is saved for next time.</summary>
-    private void StopOwn()
+    /// <summary>
+    /// Closes the notch's copy (never the user's own Everything); its index is saved for next time. With
+    /// <paramref name="keep"/>, its process is handed back to wait for it to be gone (the caller disposes of it).
+    /// </summary>
+    private Process? StopOwn(bool keep = false)
     {
         if (_own is not { HasExited: false } own)
         {
-            return;
+            return null;
         }
 
         nint everything = EverythingClient.FindEverything();
@@ -300,25 +373,48 @@ public sealed class EverythingEngine : IDisposable
             EverythingClient.Exit(everything);
         }
 
-        own.Dispose();
         _own = null;
+        if (keep)
+        {
+            return own;
+        }
+
+        own.Dispose();
+        return null;
     }
 
     /// <summary>
-    /// The copy's settings: out of sight (no window, no tray icon, no update check), sizes and dates indexed, recent
-    /// first ready to sort. With the service: every fixed disk. Without: the user's folder (no rights needed). Written
-    /// when missing or when the mode changes; Everything keeps the rest of the file up to date itself.
+    /// What the copy's settings are made of (see <see cref="WriteSettings"/>): one more, and they are written again at its
+    /// next start (2: the ignored folders not indexed, the sorts the notch never asks for not kept ready).
     /// </summary>
-    private static void WriteSettings(string path, bool fullSpeed)
+    private const int SettingsVersion = 2;
+
+    /// <summary>What the copy's settings were written from (see <see cref="Marker"/>).</summary>
+    private static string MarkerPath => Path.Combine(DataFolder, "mode.txt");
+
+    /// <summary>What the copy's settings are written from: the mode, their version, the folders left out.</summary>
+    private string Marker(bool fullSpeed) =>
+        $"{(fullSpeed ? "volumes" : "folders")};{SettingsVersion}\n{string.Join("\n", Excluded(_settings.SearchExclusions))}";
+
+    /// <summary>
+    /// The copy's settings: out of sight (no window, no tray icon, no update check), sizes and dates indexed, recent
+    /// first ready to sort (the only order the notch asks for: the other sorts are not kept ready, each would cost memory
+    /// for every file). With the service: every fixed disk. Without: the user's folder (no rights needed). What the search
+    /// ignores (<see cref="Excluded"/>) is not indexed at all: never shown, it took most of the memory (on the PC this was
+    /// measured on, AppData, node_modules and Windows made about 2.5 million of the 3.3 million entries). Written when
+    /// missing, when the mode, these settings (<see cref="SettingsVersion"/>) or the ignored folders change; Everything keeps
+    /// the rest of the file up to date itself, and filters an index already built at its next start.
+    /// </summary>
+    private void WriteSettings(string path)
     {
-        string mode = fullSpeed ? "volumes" : "folders";
-        string marker = Path.Combine(DataFolder, "mode.txt");
-        if (File.Exists(path) && File.Exists(marker) && File.ReadAllText(marker) == mode)
+        bool fullSpeed = IsFullSpeed;
+        string marker = Marker(fullSpeed);
+        if (File.Exists(path) && File.Exists(MarkerPath) && File.ReadAllText(MarkerPath) == marker)
         {
             return;
         }
 
-        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace("\\", "\\\\", StringComparison.Ordinal);
+        string home = Escape(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
         var lines = new List<string>
         {
             "[Everything]",
@@ -328,16 +424,57 @@ public sealed class EverythingEngine : IDisposable
             "check_for_updates_on_startup=0",
             "run_as_admin=0",
             "index_size=1",
+            "fast_size_sort=0",
             "index_date_modified=1",
             "fast_date_modified_sort=1",
+            "fast_path_sort=0",
+            "index_recent_changes=0",
             "run_history_enabled=1",
             "auto_include_removable_volumes=0",
             "auto_include_removable_refs_volumes=0",
+            "exclude_list_enabled=1",
+            "exclude_folders=" + string.Join(",", Excluded(_settings.SearchExclusions).Select(folder => $"\"{Escape(folder)}\"")),
         };
         lines.AddRange(fullSpeed
             ? ["auto_include_fixed_volumes=1", "auto_include_fixed_refs_volumes=1"]
             : ["auto_include_fixed_volumes=0", "auto_include_fixed_refs_volumes=0", $"folders=\"{home}\"", "folder_monitor_changes=1"]);
         File.WriteAllLines(path, lines);
-        File.WriteAllText(marker, mode);
+        File.WriteAllText(MarkerPath, marker);
+
+        // Inside double quotes, Everything reads a backslash written twice as one.
+        static string Escape(string text) => text.Replace("\\", "\\\\", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The search's ignored folders (<see cref="AppSettings.SearchExclusions"/>, one per line, never shown in its results)
+    /// as Everything's index leaves them out, so they take no memory either: « \node_modules\ » (anywhere) is any folder
+    /// of that name (« node_modules »), « \ProgramData\Microsoft\ » that pair anywhere (« *\ProgramData\Microsoft »),
+    /// « C:\Windows\ » that folder (« C:\Windows »), each with all under it. Anything else (part of a name, a wildcard, a
+    /// whole disk, a network share) is left to the search, which reads it as before. Checked with Everything 1.4.1 on a
+    /// test tree: each form leaves out what it names, and only that (« node_modules_x », another « Temp » stay).
+    /// </summary>
+    internal static IEnumerable<string> Excluded(string ignored)
+    {
+        var folders = new List<string>();
+        foreach (string line in ignored.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string folder = line.Replace("\"", "", StringComparison.Ordinal);
+            if (folder.IndexOfAny(['*', '?', ',']) >= 0)
+            {
+                continue;
+            }
+
+            if (folder.Length > 3 && char.IsAsciiLetter(folder[0]) && folder[1] == ':' && folder[2] == '\\')
+            {
+                folders.Add(folder.TrimEnd('\\')); // « C:\ » alone, a whole disk: not here (Length > 3).
+            }
+            else if (folder.Length > 2 && folder[0] == '\\' && folder[1] != '\\' && folder[^1] == '\\')
+            {
+                string inner = folder.Trim('\\');
+                folders.Add(inner.Contains('\\') ? "*\\" + inner : inner);
+            }
+        }
+
+        return folders.Where(folder => folder.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase);
     }
 }

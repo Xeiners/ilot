@@ -55,24 +55,47 @@
             </StackPanel>
         </controls:MotionButton>
 
-        <!--  What is left: new, being learnt, to review.  -->
+        <!--  Every grade so far (see ShowGrades); again, back to the session.  -->
+        <controls:MotionButton
+            x:Name="HistoryButton"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            Background="#14FFFFFF"
+            Click="OnHistoryClick"
+            Style="{StaticResource StudyChoiceStyle}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon
+                    x:Name="HistoryGlyph"
+                    FontSize="11"
+                    Glyph="&#xE81C;" />
+                <TextBlock x:Name="HistoryButtonText" FontSize="12" />
+            </StackPanel>
+        </controls:MotionButton>
+
+        <!--  Where the session is: « Carte 3 sur 20 », and its bar.  -->
         <StackPanel
             x:Name="Counts"
             HorizontalAlignment="Center"
-            Orientation="Horizontal"
-            Spacing="16">
-            <TextBlock FontFamily="Segoe UI Variable Text" FontSize="12" Typography.NumeralAlignment="Tabular">
-                <Run x:Name="NewCount" FontWeight="SemiBold" Foreground="#FF6CB8FF" />
-                <Run x:Name="NewLabel" Foreground="#8FFFFFFF" />
-            </TextBlock>
-            <TextBlock FontFamily="Segoe UI Variable Text" FontSize="12" Typography.NumeralAlignment="Tabular">
-                <Run x:Name="LearningCount" FontWeight="SemiBold" Foreground="#FFFF8A65" />
-                <Run x:Name="LearningLabel" Foreground="#8FFFFFFF" />
-            </TextBlock>
-            <TextBlock FontFamily="Segoe UI Variable Text" FontSize="12" Typography.NumeralAlignment="Tabular">
-                <Run x:Name="ReviewCount" FontWeight="SemiBold" Foreground="#FF6CD97E" />
-                <Run x:Name="ReviewLabel" Foreground="#8FFFFFFF" />
-            </TextBlock>
+            VerticalAlignment="Center"
+            Spacing="6">
+            <TextBlock
+                x:Name="ProgressText"
+                HorizontalAlignment="Center"
+                FontFamily="Segoe UI Variable Text"
+                FontSize="12"
+                Foreground="#B3FFFFFF"
+                Typography.NumeralAlignment="Tabular" />
+            <Grid
+                Width="180"
+                Height="4"
+                HorizontalAlignment="Center">
+                <Border Background="#1FFFFFFF" CornerRadius="2" />
+                <Border
+                    x:Name="ProgressFill"
+                    Width="0"
+                    HorizontalAlignment="Left"
+                    CornerRadius="2" />
+            </Grid>
         </StackPanel>
 
         <ScrollViewer
@@ -110,6 +133,8 @@
                         LineHeight="27"
                         TextAlignment="Center"
                         TextWrapping="Wrap" />
+                    <!--  The question with its formulas drawn, when it has some (see StudyMathView).  -->
+                    <ContentPresenter x:Name="QuestionMath" Visibility="Collapsed" />
                     <!--  Four choices (1 to 4), when the card has them.  -->
                     <StackPanel
                         x:Name="Options"
@@ -133,6 +158,7 @@
                             LineHeight="24"
                             TextAlignment="Center"
                             TextWrapping="Wrap" />
+                        <ContentPresenter x:Name="AnswerMath" Visibility="Collapsed" />
                         <TextBlock
                             x:Name="SourceText"
                             HorizontalAlignment="Center"
@@ -151,34 +177,166 @@
             </Grid>
         </ScrollViewer>
 
-        <!--  Nothing left for now.  -->
-        <StackPanel
+        <!--
+            The session done: its grade out of 20, its cards by how they came, how it compares with the last one, the
+            sessions before as bars, then the next session (or when the next card is due). Nothing to revise: the
+            sessions before, still.
+        -->
+        <ScrollViewer
             x:Name="DonePanel"
             Grid.Row="1"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Spacing="10"
+            HorizontalScrollBarVisibility="Disabled"
+            VerticalScrollBarVisibility="Auto"
             Visibility="Collapsed">
-            <FontIcon
-                FontSize="30"
-                Foreground="#FF6CD97E"
-                Glyph="&#xE73E;" />
-            <TextBlock
-                x:Name="DoneTitle"
+            <StackPanel
+                MaxWidth="520"
                 HorizontalAlignment="Center"
-                FontFamily="Segoe UI Variable Display"
-                FontSize="18"
-                FontWeight="SemiBold"
-                Foreground="{StaticResource NotchPrimaryTextBrush}" />
-            <TextBlock
-                x:Name="DoneText"
-                MaxWidth="440"
-                FontFamily="Segoe UI Variable Text"
-                FontSize="13"
-                Foreground="{StaticResource NotchSecondaryTextBrush}"
-                TextAlignment="Center"
-                TextWrapping="Wrap" />
-        </StackPanel>
+                VerticalAlignment="Center"
+                Spacing="8">
+                <FontIcon
+                    x:Name="DoneIcon"
+                    FontSize="28"
+                    Foreground="#FF6CD97E"
+                    Glyph="&#xE73E;" />
+                <TextBlock
+                    x:Name="GradeText"
+                    HorizontalAlignment="Center"
+                    FontFamily="Segoe UI Variable Display"
+                    FontWeight="SemiBold"
+                    Typography.NumeralAlignment="Tabular">
+                    <Run x:Name="GradeValue" FontSize="46" />
+                    <Run
+                        FontSize="20"
+                        Foreground="#8FFFFFFF"
+                        Text="/20" />
+                </TextBlock>
+                <TextBlock
+                    x:Name="DoneTitle"
+                    HorizontalAlignment="Center"
+                    FontFamily="Segoe UI Variable Display"
+                    FontSize="17"
+                    FontWeight="SemiBold"
+                    Foreground="{StaticResource NotchPrimaryTextBrush}" />
+                <StackPanel
+                    x:Name="Tally"
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="16" />
+                <TextBlock
+                    x:Name="TrendText"
+                    HorizontalAlignment="Center"
+                    FontFamily="Segoe UI Variable Text"
+                    FontSize="12.5"
+                    FontWeight="SemiBold" />
+                <StackPanel
+                    x:Name="HistoryArea"
+                    Margin="0,10,0,0"
+                    Spacing="8">
+                    <TextBlock
+                        x:Name="HistoryTitle"
+                        HorizontalAlignment="Center"
+                        CharacterSpacing="40"
+                        FontFamily="Segoe UI Variable Text"
+                        FontSize="10.5"
+                        FontWeight="SemiBold"
+                        Foreground="{StaticResource NotchSecondaryTextBrush}"
+                        Text="VOS DERNIÈRES SESSIONS" />
+                    <Grid
+                        x:Name="HistoryChart"
+                        Height="72"
+                        HorizontalAlignment="Center" />
+                    <TextBlock
+                        x:Name="HistoryText"
+                        HorizontalAlignment="Center"
+                        FontFamily="Segoe UI Variable Text"
+                        FontSize="12"
+                        Foreground="{StaticResource NotchSecondaryTextBrush}"
+                        Typography.NumeralAlignment="Tabular" />
+                </StackPanel>
+                <TextBlock
+                    x:Name="DoneText"
+                    MaxWidth="440"
+                    Margin="0,6,0,0"
+                    HorizontalAlignment="Center"
+                    FontFamily="Segoe UI Variable Text"
+                    FontSize="13"
+                    Foreground="{StaticResource NotchSecondaryTextBrush}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+                <controls:MotionButton
+                    x:Name="NextSessionButton"
+                    Height="42"
+                    MinWidth="240"
+                    Margin="0,6,0,0"
+                    HorizontalAlignment="Center"
+                    AllowFocusOnInteraction="False"
+                    Background="#F2FFFFFF"
+                    Click="OnNextSessionClick"
+                    Foreground="#FF111114"
+                    HaloOpacity="0.1"
+                    HaloRestScale="1"
+                    HoverScale="0.03"
+                    PressScale="0.05"
+                    Style="{StaticResource StudyPillStyle}"
+                    Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <FontIcon FontSize="13" Glyph="&#xE72C;" />
+                        <TextBlock x:Name="NextSessionText" FontSize="14" />
+                        <Border
+                            Padding="6,1"
+                            VerticalAlignment="Center"
+                            Background="#1A000000"
+                            CornerRadius="5">
+                            <TextBlock FontSize="11" Text="Espace" />
+                        </Border>
+                    </StackPanel>
+                </controls:MotionButton>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!--
+            Every grade so far: their average, best and last, all of them as bars, then each, the latest first (when,
+            the grade, its cards by how they came, the change since the one before).
+        -->
+        <ScrollViewer
+            x:Name="GradesPanel"
+            Grid.Row="1"
+            HorizontalScrollBarVisibility="Disabled"
+            VerticalScrollBarVisibility="Auto"
+            Visibility="Collapsed">
+            <StackPanel
+                MaxWidth="560"
+                Padding="0,4,0,8"
+                Spacing="14">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontFamily="Segoe UI Variable Display"
+                    FontSize="17"
+                    FontWeight="SemiBold"
+                    Foreground="{StaticResource NotchPrimaryTextBrush}"
+                    Text="Historique de vos notes" />
+                <StackPanel
+                    x:Name="GradesStats"
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="10" />
+                <Grid
+                    x:Name="GradesChart"
+                    Height="72"
+                    HorizontalAlignment="Center" />
+                <StackPanel x:Name="GradesList" Spacing="6" />
+                <TextBlock
+                    x:Name="GradesEmpty"
+                    MaxWidth="420"
+                    HorizontalAlignment="Center"
+                    FontFamily="Segoe UI Variable Text"
+                    FontSize="13"
+                    Foreground="{StaticResource NotchSecondaryTextBrush}"
+                    Text="Aucune note pour l'instant : terminez une session pour avoir la première."
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </ScrollViewer>
 
         <!--
             Show the answer; then how well it came (1 to 4), with when the card comes back. A choice made,

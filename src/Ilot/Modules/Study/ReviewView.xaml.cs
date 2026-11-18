@@ -55,9 +55,6 @@ public sealed partial class ReviewView : UserControl
         _settings = settings;
         InitializeComponent();
         Loc.Apply(this); // English, if so: its texts translated in place.
-        NewLabel.Text = " " + Loc.T("nouvelles");
-        LearningLabel.Text = " " + Loc.T("à apprendre");
-        ReviewLabel.Text = " " + Loc.T("à revoir");
         ElementCompositionPreview.GetElementVisual(FaceFlash).Opacity = 0; // Lit only by a flash (see Flash).
 
         // Revising takes the keys once the user is at it (Espace, 1 to 4).
@@ -84,22 +81,37 @@ public sealed partial class ReviewView : UserControl
         NextCard();
     }
 
-    /// <summary>The same revision, with more cards (new ones made): what was answered stays.</summary>
+    /// <summary>
+    /// More cards made: nothing answered yet, the session starts again with them; else they come in the next session
+    /// (the end of this one offers it).
+    /// </summary>
     public void Extend(ReviewSession session)
     {
-        _session = session;
-        if (_current is null && _looking is null)
+        if (_session is null || _session.Answered == 0)
+        {
+            Start(session);
+        }
+        else if (_current is null && _looking is null)
         {
             NextCard();
         }
     }
 
-    /// <summary>The courses' cards changed (new ones came): nothing left to answer, the next one comes.</summary>
+    /// <summary>The courses' cards changed (new ones came): a session that had none starts with them.</summary>
     public void CardsChanged()
     {
-        if (_session is not null && _current is null && _looking is null)
+        if (_session is not { } session || _current is not null || _looking is not null || _grades)
         {
-            NextCard();
+            return;
+        }
+
+        if (session.Answered == 0)
+        {
+            Start(session.Again());
+        }
+        else
+        {
+            NextCard(); // The end of the session, the next one offered now.
         }
     }
 
@@ -151,6 +163,7 @@ public sealed partial class ReviewView : UserControl
             (0, Alpha(accent, 0x99)), (0.5, Alpha(accent, 0x30)), (1, Alpha(accent, 0x14)));
         Face.BorderThickness = new Thickness(1.5);
         ChapterText.Foreground = new SolidColorBrush(Mix(accent, Microsoft.UI.Colors.White, 0.35));
+        ProgressFill.Background = new SolidColorBrush(accent);
         if (_session is not null)
         {
             Show(); // Its choices, in the colour.
@@ -159,7 +172,7 @@ public sealed partial class ReviewView : UserControl
 
     // ── The card being answered ──────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The next card due, its question only; or, none left, when the next one will be.</summary>
+    /// <summary>The session's next card, its question only; or, all answered, how the session went.</summary>
     private void NextCard()
     {
         if (_session is null)
@@ -167,30 +180,13 @@ public sealed partial class ReviewView : UserControl
             return;
         }
 
-        var now = DateTimeOffset.Now;
-        _current = _session.Next(now);
+        _current = _session.Next();
         _revealed = false;
         UpdateCounts();
 
         if (_current is not { } card)
         {
-            FaceScroller.Visibility = Visibility.Collapsed;
-            ShowAnswerButton.Visibility = RatingButtons.Visibility = NextCardButton.Visibility = Visibility.Collapsed;
-            LookLabel.Visibility = ForwardButton.Visibility = ResumeButton.Visibility = Visibility.Collapsed;
-            PreviousButton.Visibility = _history.Count > 0 ? Visibility.Visible : Visibility.Collapsed; // The last ones, still.
-            _looking = null;
-            DonePanel.Visibility = Visibility.Visible;
-            DoneTitle.Text = _session.Answered > 0 ? Loc.T("Bravo, c'est fini pour l'instant") : Loc.T("Rien à revoir pour l'instant");
-            if (_session.Answered > 0 && !_cheered)
-            {
-                _cheered = true; // Once a session.
-                StudySounds.Play(_settings, StudySounds.Done);
-            }
-
-            DoneText.Text = _session.NextDue() is { } next && next > now
-                ? Loc.F("Prochaine carte {0}. Pour aller plus loin : « Nouvelles cartes ».", StudyScheduler.When(next, now))
-                : Loc.T("Pour aller plus loin : « Nouvelles cartes ».");
-            Arrive(DonePanel, new Vector3(0, 8, 0));
+            ShowDone();
             return;
         }
 
@@ -202,19 +198,368 @@ public sealed partial class ReviewView : UserControl
         Arrive(Face, new Vector3(36, 0, 0));
     }
 
-    /// <summary>What is left: new (within the session's share), being learnt, to review.</summary>
+    /// <summary>Where the session is: « Carte 3 sur 20 », its bar filled with the cards answered.</summary>
     private void UpdateCounts()
     {
-        if (_session is null)
+        if (_session is not { } session)
         {
             return;
         }
 
-        var (fresh, learning, review) = _session.Remaining(DateTimeOffset.Now);
-        NewCount.Text = fresh.ToString(Loc.Culture);
-        LearningCount.Text = learning.ToString(Loc.Culture);
-        ReviewCount.Text = review.ToString(Loc.Culture);
+        int shown = Math.Min(session.Answered + 1, session.Total);
+        ProgressText.Text = Loc.F("Carte {0} sur {1}", shown, session.Total);
+        ProgressFill.Width = session.Total == 0 ? 0 : 180.0 * session.Answered / session.Total;
         Counts.Visibility = _current is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    // ── The session done ─────────────────────────────────────────────────────────────────────────────────────
+
+    private const int HistoryShown = 12;
+
+    /// <summary>
+    /// The session done: its grade (kept, once), its cards by how they came, how it compares with the session before,
+    /// the sessions before as bars; then the next session, when there are cards for one, else when the next card is
+    /// due. Nothing answered (nothing to revise): the sessions before, still.
+    /// </summary>
+    private void ShowDone()
+    {
+        if (_session is not { } session)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.Now;
+        HideGrades();
+        FaceScroller.Visibility = Visibility.Collapsed;
+        ShowAnswerButton.Visibility = RatingButtons.Visibility = NextCardButton.Visibility = Visibility.Collapsed;
+        LookLabel.Visibility = ForwardButton.Visibility = ResumeButton.Visibility = Visibility.Collapsed;
+        PreviousButton.Visibility = _history.Count > 0 ? Visibility.Visible : Visibility.Collapsed; // The last ones, still.
+        _looking = null;
+        bool done = session.Answered > 0;
+        if (done && !_cheered)
+        {
+            _cheered = true; // Once a session: its grade kept, its sound.
+            _viewModel.Record(session);
+            StudySounds.Play(_settings, StudySounds.Done);
+        }
+
+        var history = _viewModel.History(session.Scope);
+        var score = session.Score;
+        GradeText.Visibility = Tally.Visibility = TrendText.Visibility = done ? Visibility.Visible : Visibility.Collapsed;
+        DoneIcon.Visibility = done ? Visibility.Collapsed : Visibility.Visible;
+        if (done)
+        {
+            GradeValue.Text = Grade(score.Grade);
+            GradeValue.Foreground = new SolidColorBrush(GradeColor(score.Grade));
+            DoneTitle.Text = Loc.F("Session terminée · {0}", Loc.Count(score.Cards, "carte", "cartes"));
+            ShowTally(score);
+
+            // This session is the history's last: the one before it, to compare with.
+            if (history.Count >= 2)
+            {
+                double change = score.Grade - history[^2].Score.Grade;
+                TrendText.Text = Math.Abs(change) < 0.25
+                    ? Loc.T("Comme la session d'avant")
+                    : Loc.F("{0} depuis la session d'avant", (change > 0 ? "+" : "−") + Grade(Math.Abs(change)));
+                TrendText.Foreground = new SolidColorBrush(Math.Abs(change) < 0.25 ? Color.FromArgb(0xB3, 0xFF, 0xFF, 0xFF) : change > 0 ? Right : Wrong);
+            }
+            else
+            {
+                TrendText.Text = Loc.T("Première session notée : les suivantes montreront vos progrès");
+                TrendText.Foreground = new SolidColorBrush(Color.FromArgb(0xB3, 0xFF, 0xFF, 0xFF));
+            }
+        }
+        else
+        {
+            DoneTitle.Text = Loc.T("Rien à revoir pour l'instant");
+        }
+
+        ShowHistory(history, done);
+
+        // Again: the same cards shuffled (and those made since); or, on everything due, what is due now.
+        int following = session.Following(now);
+        NextSessionButton.Visibility = following > 0 ? Visibility.Visible : Visibility.Collapsed;
+        NextSessionText.Text = session.Whole
+            ? Loc.F("Recommencer · {0}", Loc.Count(following, "carte", "cartes"))
+            : Loc.F("Session suivante · {0}", Loc.Count(following, "carte", "cartes"));
+        DoneText.Text = session.Whole
+            ? Loc.T("Les mêmes cartes, dans un autre ordre. Ou « Nouvelles cartes » : elles s'ajoutent aux autres.")
+            : following > 0 ? ""
+            : session.NextDue() is { } next && next > now
+                ? Loc.F("Prochaine carte {0}. Pour aller plus loin : « Nouvelles cartes ».", StudyScheduler.When(next, now))
+                : Loc.T("Pour aller plus loin : « Nouvelles cartes ».");
+        DoneText.Visibility = DoneText.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        DonePanel.Visibility = Visibility.Visible;
+        DonePanel.ChangeView(null, 0, null, disableAnimation: true);
+        Arrive(DonePanel, new Vector3(0, 8, 0));
+    }
+
+    /// <summary>A grade, as the notch's culture writes it: « 16,5 ».</summary>
+    private static string Grade(double grade) => (Math.Round(grade * 2) / 2).ToString("0.#", Loc.Culture);
+
+    /// <summary>Green from 14, orange from 10, red under.</summary>
+    private static Color GradeColor(double grade) =>
+        grade >= 14 ? Right : grade >= 10 ? Color.FromArgb(0xFF, 0xFF, 0xB8, 0x6B) : Wrong;
+
+    /// <summary>The cards by how they came: « ● 16 bien », « ● 2 difficiles », « ● 2 à revoir » (those there are).</summary>
+    private void ShowTally(SessionScore score)
+    {
+        Tally.Children.Clear();
+        foreach (var (count, color, one, many) in new[]
+        {
+            (score.Right, Right, "bien", "bien"),
+            (score.Hard, Color.FromArgb(0xFF, 0xFF, 0xB8, 0x6B), "difficile", "difficiles"),
+            (score.Again, Wrong, "à revoir", "à revoir"),
+        })
+        {
+            if (count == 0)
+            {
+                continue;
+            }
+
+            var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            item.Children.Add(new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 7, Height = 7, Fill = new SolidColorBrush(color), VerticalAlignment = VerticalAlignment.Center });
+            item.Children.Add(new TextBlock
+            {
+                Text = Loc.Count(count, one, many),
+                FontFamily = new FontFamily("Segoe UI Variable Text"),
+                FontSize = 12.5,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xD9, 0xFF, 0xFF, 0xFF)),
+            });
+            Tally.Children.Add(item);
+        }
+    }
+
+    /// <summary>
+    /// The last sessions as bars (their grade out of 20; the one just done in the full colour, its grade above it), and
+    /// their average and best. None yet: nothing.
+    /// </summary>
+    private void ShowHistory(IReadOnlyList<SessionPoint> history, bool done)
+    {
+        HistoryArea.Visibility = history.Count > (done ? 1 : 0) ? Visibility.Visible : Visibility.Collapsed;
+        Bars(HistoryChart, [.. history.TakeLast(HistoryShown)], done);
+        if (history.Count == 0)
+        {
+            return;
+        }
+
+        double average = history.TakeLast(5).Average(point => point.Score.Grade);
+        double best = history.Max(point => point.Score.Grade);
+        HistoryText.Text = Loc.F("Moyenne des 5 dernières : {0}/20 · Meilleure : {1}/20 · {2}",
+            Grade(average), Grade(best), Loc.Count(history.Count, "session", "sessions"));
+    }
+
+    /// <summary>
+    /// Sessions as bars in <paramref name="chart"/>, the oldest left: their grade out of 20, above each; the last one in
+    /// its grade's colour when <paramref name="lastLit"/> (the session just done). Hovered: when, the grade, its cards.
+    /// </summary>
+    private void Bars(Grid chart, IReadOnlyList<SessionPoint> shown, bool lastLit)
+    {
+        chart.Children.Clear();
+        chart.ColumnDefinitions.Clear();
+        const double Tallest = 52;
+        for (int i = 0; i < shown.Count; i++)
+        {
+            var point = shown[i];
+            bool last = lastLit && i == shown.Count - 1;
+            chart.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(shown.Count > 16 ? 18 : 26) });
+            var column = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, Spacing = 3 };
+            column.Children.Add(new TextBlock
+            {
+                Text = Grade(point.Score.Grade),
+                FontSize = 9.5,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Foreground = new SolidColorBrush(Color.FromArgb(last ? (byte)0xE6 : (byte)0x80, 0xFF, 0xFF, 0xFF)),
+            });
+            column.Children.Add(new Border
+            {
+                Width = shown.Count > 16 ? 10 : 14,
+                Height = 3 + Tallest * point.Score.Grade / 20,
+                CornerRadius = new CornerRadius(4, 4, 2, 2),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Background = new SolidColorBrush(last ? GradeColor(point.Score.Grade) : Alpha(_accent, 0x66)),
+            });
+            ToolTipService.SetToolTip(column, Loc.F("{0} · {1}/20 · {2}",
+                point.Finished.ToString("d MMM, HH:mm", Loc.Culture), Grade(point.Score.Grade), Loc.Count(point.Score.Cards, "carte", "cartes")));
+            Grid.SetColumn(column, i);
+            chart.Children.Add(column);
+        }
+    }
+
+    private void OnNextSessionClick(object sender, RoutedEventArgs e) => NextSession();
+
+    /// <summary>Another session on the same courses, from its first card: the same cards (and the new ones), shuffled.</summary>
+    private void NextSession()
+    {
+        if (_session is { } session && NextSessionButton.Visibility == Visibility.Visible)
+        {
+            Start(session.Again());
+        }
+    }
+
+    // ── Every grade ──────────────────────────────────────────────────────────────────────────────────────────
+
+    private const int GradesCharted = 30;
+    private bool _grades;
+
+    private void OnHistoryClick(object sender, RoutedEventArgs e)
+    {
+        if (_grades)
+        {
+            Show(); // Back to the session, as it was.
+        }
+        else
+        {
+            ShowGrades();
+        }
+    }
+
+    /// <summary>The grades shown no more: the button says « Historique » again.</summary>
+    private void HideGrades()
+    {
+        _grades = false;
+        GradesPanel.Visibility = Visibility.Collapsed;
+        HistoryButtonText.Text = Loc.T("Historique");
+        HistoryGlyph.Glyph = "";
+        HistoryButton.Visibility = _session is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>
+    /// Every grade on what is revised (the session left as it is, under it): their average, best and last, the last
+    /// <see cref="GradesCharted"/> as bars, then each, the latest first — when, the grade, its cards by how they came, the
+    /// change since the one before.
+    /// </summary>
+    private void ShowGrades()
+    {
+        if (_session is not { } session)
+        {
+            return;
+        }
+
+        _grades = true;
+        FaceScroller.Visibility = DonePanel.Visibility = Counts.Visibility = Visibility.Collapsed;
+        PreviousButton.Visibility = LookLabel.Visibility = ForwardButton.Visibility = Visibility.Collapsed;
+        ShowAnswerButton.Visibility = RatingButtons.Visibility = NextCardButton.Visibility = ResumeButton.Visibility = Visibility.Collapsed;
+        HistoryButtonText.Text = Loc.T("Revenir");
+        HistoryGlyph.Glyph = "";
+        HistoryButton.Visibility = Visibility.Visible;
+
+        var history = _viewModel.History(session.Scope);
+        GradesEmpty.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        GradesStats.Visibility = GradesChart.Visibility = history.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        GradesStats.Children.Clear();
+        GradesList.Children.Clear();
+        if (history.Count > 0)
+        {
+            GradesStats.Children.Add(Stat(Loc.T("Moyenne"), history.Average(point => point.Score.Grade)));
+            GradesStats.Children.Add(Stat(Loc.T("Meilleure"), history.Max(point => point.Score.Grade)));
+            GradesStats.Children.Add(Stat(Loc.T("Dernière"), history[^1].Score.Grade));
+            Bars(GradesChart, [.. history.TakeLast(GradesCharted)], lastLit: true);
+            for (int i = history.Count - 1; i >= 0; i--)
+            {
+                GradesList.Children.Add(GradeRow(history[i], i > 0 ? history[i - 1] : null));
+            }
+        }
+
+        GradesPanel.Visibility = Visibility.Visible;
+        GradesPanel.ChangeView(null, 0, null, disableAnimation: true);
+        Arrive(GradesPanel, new Vector3(0, 8, 0));
+    }
+
+    /// <summary>A figure of the history: « Moyenne », « 14,5/20 ».</summary>
+    private static Border Stat(string label, double grade)
+    {
+        var text = new TextBlock { FontFamily = new FontFamily("Segoe UI Variable Text"), FontSize = 12.5 };
+        text.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = label + "  ", Foreground = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF)) });
+        text.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+        {
+            Text = Grade(grade) + "/20",
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(GradeColor(grade)),
+        });
+        return new Border
+        {
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(14),
+            Background = new SolidColorBrush(Color.FromArgb(0x10, 0xFF, 0xFF, 0xFF)),
+            Child = text,
+        };
+    }
+
+    /// <summary>A session in the history: when, its cards by how they came, the change since <paramref name="before"/>, its grade.</summary>
+    private static Border GradeRow(SessionPoint point, SessionPoint? before)
+    {
+        var score = point.Score;
+        var row = new Grid { ColumnSpacing = 14 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var left = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        left.Children.Add(new TextBlock
+        {
+            Text = point.Finished.ToString("dddd d MMMM · HH:mm", Loc.Culture),
+            FontFamily = new FontFamily("Segoe UI Variable Text"),
+            FontSize = 13,
+            Foreground = new SolidColorBrush(Color.FromArgb(0xEB, 0xFF, 0xFF, 0xFF)),
+        });
+        var parts = new List<string> { Loc.Count(score.Cards, "carte", "cartes"), Loc.Count(score.Right, "bien", "bien") };
+        if (score.Hard > 0)
+        {
+            parts.Add(Loc.Count(score.Hard, "difficile", "difficiles"));
+        }
+
+        if (score.Again > 0)
+        {
+            parts.Add(Loc.Count(score.Again, "à revoir", "à revoir"));
+        }
+
+        left.Children.Add(new TextBlock
+        {
+            Text = string.Join(" · ", parts),
+            FontFamily = new FontFamily("Segoe UI Variable Text"),
+            FontSize = 11.5,
+            Foreground = new SolidColorBrush(Color.FromArgb(0x8C, 0xFF, 0xFF, 0xFF)),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        row.Children.Add(left);
+
+        if (before is not null)
+        {
+            double change = score.Grade - before.Score.Grade;
+            var trend = new TextBlock
+            {
+                Text = Math.Abs(change) < 0.25 ? "=" : (change > 0 ? "+" : "−") + Grade(Math.Abs(change)),
+                FontFamily = new FontFamily("Segoe UI Variable Text"),
+                FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = new SolidColorBrush(Math.Abs(change) < 0.25 ? Color.FromArgb(0x8C, 0xFF, 0xFF, 0xFF) : change > 0 ? Right : Wrong),
+            };
+            Grid.SetColumn(trend, 1);
+            row.Children.Add(trend);
+        }
+
+        var grade = new TextBlock
+        {
+            FontFamily = new FontFamily("Segoe UI Variable Display"),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        grade.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = Grade(score.Grade), FontSize = 20, Foreground = new SolidColorBrush(GradeColor(score.Grade)) });
+        grade.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "/20", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)) });
+        Grid.SetColumn(grade, 2);
+        row.Children.Add(grade);
+
+        return new Border
+        {
+            Padding = new Thickness(16, 10, 16, 10),
+            CornerRadius = new CornerRadius(16),
+            Background = new SolidColorBrush(Color.FromArgb(0x0D, 0xFF, 0xFF, 0xFF)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(0x10, 0xFF, 0xFF, 0xFF)),
+            BorderThickness = new Thickness(1),
+            Child = row,
+        };
     }
 
     /// <summary>
@@ -229,6 +574,7 @@ public sealed partial class ReviewView : UserControl
         }
 
         _looking = null;
+        HideGrades();
         DonePanel.Visibility = Visibility.Collapsed;
         FaceScroller.Visibility = Visibility.Visible;
         Counts.Visibility = Visibility.Visible;
@@ -256,7 +602,7 @@ public sealed partial class ReviewView : UserControl
     {
         ChapterText.Text = card.Chapter.ToUpper(Loc.Culture);
         ChapterText.Visibility = card.Chapter.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        QuestionText.Text = card.Question;
+        ShowText(QuestionText, QuestionMath, card.Question);
         ShowOptions(card, options, interactive);
     }
 
@@ -297,14 +643,11 @@ public sealed partial class ReviewView : UserControl
                     VerticalAlignment = VerticalAlignment.Center,
                 },
             };
-            var text = new TextBlock
-            {
-                Text = options[i],
-                FontFamily = new FontFamily("Segoe UI Variable Text"),
-                FontSize = 14.5,
-                TextWrapping = TextWrapping.Wrap,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
+            var font = new FontFamily("Segoe UI Variable Text");
+            FrameworkElement text = StudyMath.Has(options[i])
+                ? StudyMathView.Render(options[i], new MathStyle(font, 14.5, Microsoft.UI.Text.FontWeights.Normal, new SolidColorBrush(Microsoft.UI.Colors.White), 21, Selectable: false))
+                : new TextBlock { Text = options[i], FontFamily = font, FontSize = 14.5, TextWrapping = TextWrapping.Wrap };
+            text.VerticalAlignment = VerticalAlignment.Center;
             var row = new Grid { ColumnSpacing = 12, Margin = new Thickness(14, 10, 16, 10) };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -323,7 +666,7 @@ public sealed partial class ReviewView : UserControl
                 HaloOpacity = 0.06,
                 Content = row,
             };
-            AutomationProperties.SetName(option, options[i]);
+            AutomationProperties.SetName(option, StudyMath.Plain(options[i]));
             option.IsHitTestVisible = interactive;
             option.Click += (_, _) => Choose(index);
             Options.Children.Add(option);
@@ -413,10 +756,22 @@ public sealed partial class ReviewView : UserControl
         });
     }
 
+    /// <summary>A card's words in their block; drawn with their formulas instead, in the same style, when they have some.</summary>
+    private static void ShowText(TextBlock block, ContentPresenter math, string text)
+    {
+        bool formulas = StudyMath.Has(text);
+        block.Text = formulas ? "" : text;
+        block.Visibility = formulas ? Visibility.Collapsed : Visibility.Visible;
+        math.Content = formulas
+            ? StudyMathView.Render(text, new MathStyle(block.FontFamily, block.FontSize, block.FontWeight, block.Foreground, block.LineHeight, Centered: true))
+            : null;
+        math.Visibility = formulas ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     /// <summary>The answer under the question, and its source.</summary>
     private void ShowAnswer(StudyCard card)
     {
-        AnswerText.Text = card.Answer;
+        ShowText(AnswerText, AnswerMath, card.Answer);
         SourceText.Text = card.Source.Length > 0 ? Loc.F("Source : {0}", card.Source) : "";
         SourceText.Visibility = card.Source.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         AnswerArea.Visibility = Visibility.Visible;
@@ -524,6 +879,8 @@ public sealed partial class ReviewView : UserControl
 
         _looking = index;
         var answered = _history[index];
+        HideGrades();
+        HistoryButton.Visibility = Visibility.Collapsed; // « Suivante » is there.
         DonePanel.Visibility = Visibility.Collapsed;
         FaceScroller.Visibility = Visibility.Visible;
         Counts.Visibility = Visibility.Collapsed;
@@ -588,6 +945,17 @@ public sealed partial class ReviewView : UserControl
     /// </summary>
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (_grades)
+        {
+            if (e.Key == VirtualKey.Escape)
+            {
+                Show(); // Échap: back to the session, not out of it.
+                e.Handled = true;
+            }
+
+            return;
+        }
+
         int number = e.Key switch
         {
             VirtualKey.Number1 or VirtualKey.NumberPad1 => 1,
@@ -615,7 +983,11 @@ public sealed partial class ReviewView : UserControl
 
             case VirtualKey.Space:
             case VirtualKey.Enter:
-                if (_revealed)
+                if (_current is null)
+                {
+                    NextSession(); // The session done: the next one, if there are cards for it.
+                }
+                else if (_revealed)
                 {
                     Rate(_suggested);
                 }

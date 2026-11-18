@@ -64,6 +64,21 @@ public sealed class CodeService
         Process.Start(start)?.Dispose();
     }
 
+    /// <summary>
+    /// A folder or a file opened in VS Code (the assistant's « open_file_or_app »): VS Code itself, never through the
+    /// shell (a path is not read as commands). <c>false</c> if VS Code is not found.
+    /// </summary>
+    public static bool OpenPath(string path)
+    {
+        if (Executable is not { } executable)
+        {
+            return false;
+        }
+
+        Process.Start(new ProcessStartInfo(executable) { UseShellExecute = false, ArgumentList = { path } })?.Dispose();
+        return true;
+    }
+
     /// <summary>Shows the project in the Explorer: the folder itself, or the workspace file selected in its folder.</summary>
     public static void Reveal(RecentProject project)
     {

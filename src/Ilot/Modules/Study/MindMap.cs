@@ -60,9 +60,9 @@ public sealed record MindMap(
             .Select(map => new MindMap(
                 (map.Chapter ?? "").Trim(),
                 (map.Notion ?? "").Trim(),
-                (map.Definition ?? "").Trim(),
+                StudyMath.Plain((map.Definition ?? "").Trim()),
                 (map.Formulas ?? [])
-                    .Select(formula => (formula ?? "").Trim().Trim('$').Trim())
+                    .Select(formula => StudyMath.PlainFormula(formula ?? ""))
                     .Where(formula => formula.Length > 0)
                     .Distinct()
                     .Take(MostFormulas)
@@ -72,7 +72,7 @@ public sealed record MindMap(
                     .Select(branch => new MindBranch(
                         (branch.Label ?? "").Trim(),
                         (branch.Details ?? [])
-                            .Select(detail => (detail ?? "").Trim().TrimEnd('.', ';', ','))
+                            .Select(detail => StudyMath.Plain((detail ?? "").Trim()).TrimEnd('.', ';', ','))
                             .Where(detail => detail.Length > 0)
                             .DistinctBy(Key)
                             .Take(MostDetails)

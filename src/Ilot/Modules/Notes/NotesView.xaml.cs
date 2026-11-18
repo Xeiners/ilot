@@ -82,7 +82,8 @@ public sealed partial class NotesView : UserControl
 
     /// <summary>
     /// The notes are read when the tab first comes into view. Leaving it, or the notch closing, folds the sheet away
-    /// (saved) and lets go of the keyboard.
+    /// (saved) and lets go of the keyboard; the note that was open opens again, the caret where it was, when the tab
+    /// shows next (until the user closes it themselves).
     /// </summary>
     private async void OnShownChanged()
     {
@@ -96,14 +97,33 @@ public sealed partial class NotesView : UserControl
             }
 
             UpdateRowHint();
+
+            // Back to the note left open (still there, and not in its own window meanwhile).
+            if (_kept is { } kept && _context.IsVisible && _sheet.Note is null)
+            {
+                _kept = null;
+                if (ViewModel.Notes.Contains(kept.Note) && _detached?.Note != kept.Note)
+                {
+                    _sheet.Import(kept);
+                }
+            }
+
             return;
         }
 
         Search.Reset();
         ReturnKeyboard();
+        if (_sheet.Note is { IsEmpty: false })
+        {
+            _kept = _sheet.Export(); // A blank one is forgotten as it closes: nothing to come back to.
+        }
+
         _sheet.Close();
         ViewModel.Flush();
     }
+
+    /// <summary>The note open when the notch closed (or the tab was left): opened again when the tab shows next.</summary>
+    private NoteState? _kept;
 
     // ── The row of cards ────────────────────────────────────────────────────────────────────────────────────
 
@@ -209,6 +229,7 @@ public sealed partial class NotesView : UserControl
 
     private void CloseSheet()
     {
+        _kept = null; // Closed by the user: it stays closed.
         ReturnKeyboard();
         _sheet.Close();
     }

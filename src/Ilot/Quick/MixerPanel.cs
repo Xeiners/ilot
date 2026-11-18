@@ -16,7 +16,7 @@ namespace Ilot.Quick;
 /// The volume mixer, left of the quick controls (a right click on the volume): each app making sound on the default output,
 /// its icon (a click mutes it), its name, its level as a slim slider in the mascot's colour, and the number. The notch's
 /// black, a faint rim; no scroll bar past a handful of apps. At its bottom, the booster's switch (see <see cref="SoundBooster"/>):
-/// on, the apps' sliders go up to 200 %, a mark at 100 %.
+/// on, the apps' sliders go up to 300 %, a mark at 100 %.
 /// </summary>
 public sealed partial class MixerPanel : Grid
 {
@@ -141,7 +141,7 @@ public sealed partial class MixerPanel : Grid
     }
 
     /// <summary>
-    /// The booster's row: its switch, and what it does (« Jusqu'à 200 % par application »). Before Windows 11 (no capture of
+    /// The booster's row: its switch, and what it does (« Jusqu'à 300 % par application »). Before Windows 11 (no capture of
     /// an app's sound), it says so.
     /// </summary>
     private void ShowBooster()
@@ -198,12 +198,12 @@ public sealed partial class MixerPanel : Grid
         {
             booster.IsOn = toggle.IsOn;
             Refresh();
-            ShowRows(); // Their sliders go up to 200 %, or back to 100 %.
+            ShowRows(); // Their sliders go up to 300 %, or back to 100 %.
         };
 
         void Refresh()
         {
-            detail.Text = booster.IsOn ? Loc.T("Jusqu'à 200 % par application") : Loc.T("Désactivé : 100 % au plus");
+            detail.Text = booster.IsOn ? Loc.T("Jusqu'à 300 % par application") : Loc.T("Désactivé : 100 % au plus");
             title.Opacity = glyph.Opacity = booster.IsOn ? 1 : 0.7;
         }
     }
@@ -300,7 +300,7 @@ public sealed partial class MixerPanel : Grid
         Refresh();
         slider.Changed += (_, value) =>
         {
-            level = boostable && Math.Abs(value - 1) < 0.04 ? 1 : value; // 100 %: a notch, easy to come back to.
+            level = boostable && Math.Abs(value - 1) < 0.06 ? 1 : value; // 100 %: a notch, easy to come back to.
             if (key is not null && _booster is { } booster && (level > 1 || booster.Holds(key)))
             {
                 booster.Set(key, level);
@@ -349,7 +349,7 @@ public sealed partial class MixerPanel : Grid
 
 /// <summary>
 /// A slim slider for the mixer: a faint track, its level in the accent, a round knob. Pressed anywhere on it, the level
-/// jumps there and follows the pointer; the wheel moves it by 5 %. Its levels go from 0 to <see cref="Most"/> (1; 2 for an
+/// jumps there and follows the pointer; the wheel moves it by 5 %. Its levels go from 0 to <see cref="Most"/> (1; 3 for an
 /// app the booster can make louder, a mark at 1).
 /// </summary>
 public sealed partial class MixerSlider : Grid

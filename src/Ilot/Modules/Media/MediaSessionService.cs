@@ -27,6 +27,11 @@ public sealed class MediaSessionService : IMediaSessionService, IDisposable
     private CancellationTokenSource? _pendingRefresh;
     private MediaArtwork? _artwork;
 
+    // The title, the artist and the cover, as last read for _propertiesOf (see ReadPropertiesAsync): read again only when
+    // the player says they changed, or for another session.
+    private Task<TrackProperties>? _properties;
+    private GlobalSystemMediaTransportControlsSession? _propertiesOf;
+
     public MediaSessionService(DispatcherQueue dispatcher) => _dispatcher = dispatcher;
 
     public MediaSnapshot Current { get; private set; } = MediaSnapshot.Empty;
@@ -83,7 +88,11 @@ public sealed class MediaSessionService : IMediaSessionService, IDisposable
         _dispatcher.TryEnqueue(SelectSession);
 
     private void OnMediaPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args) =>
-        _dispatcher.TryEnqueue(ScheduleRefresh);
+        _dispatcher.TryEnqueue(() =>
+        {
+            _properties = null; // A new title, or its cover: read again.
+            ScheduleRefresh();
+        });
 
     private void OnPlaybackInfoChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) =>
         _dispatcher.TryEnqueue(ScheduleRefresh);
@@ -118,6 +127,7 @@ public sealed class MediaSessionService : IMediaSessionService, IDisposable
         }
 
         Attach(session);
+        _properties = null; // Rare (a player opened or closed): read all again.
         ScheduleRefresh();
     }
 
@@ -185,19 +195,51 @@ public sealed class MediaSessionService : IMediaSessionService, IDisposable
         }
     }
 
+    /// <summary>
+    /// The session as it is now. The play state and the position are read each time; the title, the artist and the cover
+    /// only when the player said they changed (<see cref="OnMediaPropertiesChanged"/>): some players say where they are
+    /// every second, and reading the cover copies it whole (up to megabytes, each time garbage). A read under way is
+    /// shared, so a refresh never publishes the title it replaces; one that failed is tried again next time.
+    /// </summary>
     private async Task<MediaSnapshot> ReadAsync(GlobalSystemMediaTransportControlsSession session)
     {
-        var properties = await session.TryGetMediaPropertiesAsync();
+        if (_properties is null || !ReferenceEquals(session, _propertiesOf))
+        {
+            _propertiesOf = session;
+            _properties = ReadPropertiesAsync(session);
+        }
+
+        var read = _properties;
+        TrackProperties properties;
+        try
+        {
+            properties = await read;
+        }
+        catch
+        {
+            if (ReferenceEquals(_properties, read))
+            {
+                _properties = null;
+            }
+
+            throw;
+        }
+
+        // No cover yet (some players send it after the title, maybe without saying so): looked for again next time.
+        if (properties.Artwork is null && ReferenceEquals(_properties, read))
+        {
+            _properties = null;
+        }
+
         var playback = session.GetPlaybackInfo();
         var controls = playback?.Controls;
-        var artwork = await ReadArtworkAsync(properties?.Thumbnail);
 
         return new MediaSnapshot(
             SourceAppId: session.SourceAppUserModelId,
-            Title: properties?.Title?.Trim() ?? "",
-            Artist: properties?.Artist?.Trim() ?? "",
-            AlbumTitle: properties?.AlbumTitle?.Trim() ?? "",
-            Artwork: artwork,
+            Title: properties.Title,
+            Artist: properties.Artist,
+            AlbumTitle: properties.Album,
+            Artwork: properties.Artwork,
             IsPlaying: playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing,
             CanPlayPause: controls is not null && (controls.IsPlayPauseToggleEnabled || controls.IsPlayEnabled || controls.IsPauseEnabled),
             CanSkipNext: controls?.IsNextEnabled == true,
@@ -205,6 +247,20 @@ public sealed class MediaSessionService : IMediaSessionService, IDisposable
             CanSeek: controls?.IsPlaybackPositionEnabled == true,
             Timeline: ReadTimeline(session.GetTimelineProperties(), playback));
     }
+
+    private async Task<TrackProperties> ReadPropertiesAsync(GlobalSystemMediaTransportControlsSession session)
+    {
+        var properties = await session.TryGetMediaPropertiesAsync();
+        var artwork = await ReadArtworkAsync(properties?.Thumbnail);
+        return new TrackProperties(
+            properties?.Title?.Trim() ?? "",
+            properties?.Artist?.Trim() ?? "",
+            properties?.AlbumTitle?.Trim() ?? "",
+            artwork);
+    }
+
+    /// <summary>What a track is (see <see cref="ReadPropertiesAsync"/>).</summary>
+    private sealed record TrackProperties(string Title, string Artist, string Album, MediaArtwork? Artwork);
 
     private async Task<MediaArtwork?> ReadArtworkAsync(IRandomAccessStreamReference? thumbnail)
     {

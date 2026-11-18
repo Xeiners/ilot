@@ -14,7 +14,8 @@ namespace Ilot.Modules.Study;
 /// A summary sheet (the Markdown Notch writes) drawn to be studied, plain and easy to read: each part a card of neutral
 /// glass, its number, its title and its pages; its points as a list, a definition's term in bold white, the pages each
 /// comes from as little chips; « À retenir » and « À ne pas confondre » as boxes of their own (the latter with an amber
-/// line). No colour but that: the text first. Read once, as it is: nothing moves.
+/// line). No colour but that: the text first. Formulas drawn as in a book (see <see cref="StudyMathView"/>). Read once, as it
+/// is: nothing moves.
 /// </summary>
 internal static partial class StudySheet
 {
@@ -35,6 +36,7 @@ internal static partial class StudySheet
         Section? section = null;
         Panel? box = null;
 
+        markdown = StudyMath.JoinDisplays(StudyMath.Repair(markdown));
         foreach (string raw in markdown.Replace("\r", "", StringComparison.Ordinal).Split('\n'))
         {
             string line = raw.TrimEnd();
@@ -45,7 +47,7 @@ internal static partial class StudySheet
 
             if (PartLine().Match(line) is { Success: true } part)
             {
-                section = new Section(parts.Count + 1, part.Groups["title"].Value);
+                section = new Section(parts.Count + 1, StudyMath.Plain(part.Groups["title"].Value));
                 sheet.Children.Add(section.Card);
                 parts.Add(new Part(section.Title, section.Card));
                 box = null;
@@ -55,7 +57,7 @@ internal static partial class StudySheet
             if (line.StartsWith('#'))
             {
                 // « ### À retenir », « ### À ne pas confondre », or a heading of the part's own; « # » (the course) is the header's.
-                string heading = line.TrimStart('#').Trim();
+                string heading = StudyMath.Plain(line.TrimStart('#').Trim());
                 if (line.StartsWith("##", StringComparison.Ordinal))
                 {
                     section ??= Start(Loc.T("Fiche"));
@@ -201,9 +203,9 @@ internal static partial class StudySheet
 
     /// <summary>
     /// The words of a point: « **Terme** : définition » with the term in the sheet's colour; within, **bold** brighter,
-    /// *italics*, `code`.
+    /// *italics*, `code`, and the formulas drawn (the tall ones on lines of their own).
     /// </summary>
-    private static TextBlock Words(string text, bool definition)
+    private static FrameworkElement Words(string text, bool definition)
     {
         var block = new TextBlock
         {
@@ -218,35 +220,48 @@ internal static partial class StudySheet
         if (definition && Definition().Match(text) is { Success: true } term)
         {
             var name = new Bold { Foreground = Brush(Plain) };
-            name.Inlines.Add(new Run { Text = term.Groups["term"].Value });
+            name.Inlines.Add(new Run { Text = StudyMath.Plain(term.Groups["term"].Value) });
             block.Inlines.Add(name);
             block.Inlines.Add(new Run { Text = " : ", Foreground = Brush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)) });
             text = term.Groups["rest"].Value;
         }
 
+        if (StudyMath.Has(text))
+        {
+            var style = new MathStyle(Text, 14, FontWeights.Normal, Brush(Body), 23);
+            return StudyMathView.Render(text, style, Markdown, block.Inlines.Count > 0 ? block : null);
+        }
+
+        Markdown(block.Inlines, text);
+        return block;
+    }
+
+    /// <summary>Words with their **bold**, *italics* and `code`, as runs.</summary>
+    private static void Markdown(InlineCollection inlines, string text)
+    {
         int at = 0;
         foreach (Match mark in Inline().Matches(text))
         {
             if (mark.Index > at)
             {
-                block.Inlines.Add(new Run { Text = text[at..mark.Index] });
+                inlines.Add(new Run { Text = text[at..mark.Index] });
             }
 
             if (mark.Groups["bold"].Success)
             {
                 var bold = new Bold { Foreground = Brush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)) };
                 bold.Inlines.Add(new Run { Text = mark.Groups["bold"].Value });
-                block.Inlines.Add(bold);
+                inlines.Add(bold);
             }
             else if (mark.Groups["code"].Success)
             {
-                block.Inlines.Add(new Run { Text = mark.Groups["code"].Value, FontFamily = new FontFamily("Cascadia Mono, Consolas"), FontSize = 12.5 });
+                inlines.Add(new Run { Text = mark.Groups["code"].Value, FontFamily = new FontFamily("Cascadia Mono, Consolas"), FontSize = 12.5 });
             }
             else
             {
                 var italic = new Italic();
                 italic.Inlines.Add(new Run { Text = mark.Groups["italic"].Value });
-                block.Inlines.Add(italic);
+                inlines.Add(italic);
             }
 
             at = mark.Index + mark.Length;
@@ -254,10 +269,8 @@ internal static partial class StudySheet
 
         if (at < text.Length)
         {
-            block.Inlines.Add(new Run { Text = text[at..] });
+            inlines.Add(new Run { Text = text[at..] });
         }
-
-        return block;
     }
 
     /// <summary>The pages a point ends with (« (p. 4) », « (p. 6, 7) », « (diapo 3) »): taken off its text.</summary>

@@ -19,7 +19,8 @@ namespace Ilot.Modules.Media.Lyrics;
 /// icons and above the taskbar, that never takes the focus nor has a button of its own in the taskbar. The line being
 /// sung (brightening as it is sung) and the next one under it, flush right against the artwork, the playing app's icon on
 /// its corner. Under the pointer it shows how wide the lines may go: its left edge, pulled, sets that (the right one stays
-/// against the icons); clicked, it opens the notch. It fades in and out on the compositor.
+/// against the icons); clicked, it opens the notch; dragged, it follows the pointer and, let go, goes onto the taskbar of
+/// that screen (see <see cref="Dropped"/>). It fades in and out on the compositor.
 /// </summary>
 internal sealed class TaskbarLyricsWindow : Window
 {
@@ -46,9 +47,12 @@ internal sealed class TaskbarLyricsWindow : Window
     private readonly Image _badge;
     private readonly WindowMessageHook _messages;
     private float _shown; // Where the fade goes: 1 shown, 0 hidden.
+    private bool _closed;
     private bool _light; // On a light taskbar: dark ink.
     private bool _hovered;
     private bool _pressed; // Pressed on the lines: a click, once let go there.
+    private (int X, int Y, int Left, int Top)? _press; // Pressed: where the pointer and the window were.
+    private bool _moving; // Dragged past a few pixels: it follows the pointer.
     private (int Pointer, int Width, int Right)? _pulled; // The grip held: where the pointer, the width and the right edge were.
 
     public TaskbarLyricsWindow()
@@ -134,17 +138,34 @@ internal sealed class TaskbarLyricsWindow : Window
         _root.Children.Add(grip);
         _root.PointerEntered += (_, _) => Hover(true);
         _root.PointerExited += (_, _) => Hover(false);
-        _root.PointerPressed += (_, e) => _pressed = _root.CapturePointer(e.Pointer);
+        _root.PointerPressed += (_, e) =>
+        {
+            _pressed = _root.CapturePointer(e.Pointer);
+            _press = _pressed && NativeMethods.GetCursorPos(out var at) ? (at.X, at.Y, AppWindow.Position.X, AppWindow.Position.Y) : null;
+        };
+        _root.PointerMoved += (_, _) => Follow();
         _root.PointerReleased += (_, _) =>
         {
-            if (_pressed)
+            if (_moving)
+            {
+                EndMove();
+            }
+            else if (_pressed)
             {
                 _pressed = false;
+                _press = null;
                 _root.ReleasePointerCaptures();
                 Clicked?.Invoke(this, EventArgs.Empty);
             }
         };
-        _root.PointerCaptureLost += (_, _) => _pressed = false;
+        _root.PointerCaptureLost += (_, _) =>
+        {
+            _pressed = false;
+            if (_moving)
+            {
+                EndMove();
+            }
+        };
         Content = _root;
         ElementCompositionPreview.GetElementVisual(_root).Opacity = 0;
         ElementCompositionPreview.GetElementVisual(_frame).Opacity = 0;
@@ -155,7 +176,11 @@ internal sealed class TaskbarLyricsWindow : Window
         ConfigureChrome();
         _messages = new WindowMessageHook(_hwnd, (message, _, _) =>
             message == NativeMethods.WM_MOUSEACTIVATE ? NativeMethods.MA_NOACTIVATE : null); // A click never takes the focus.
-        Closed += (_, _) => _messages.Dispose();
+        Closed += (_, _) =>
+        {
+            _closed = true;
+            _messages.Dispose();
+        };
     }
 
     /// <summary>The lines, as the notch draws them (karaoke here).</summary>
@@ -166,6 +191,12 @@ internal sealed class TaskbarLyricsWindow : Window
 
     /// <summary>Its left edge pulled, and let go: its new width (the screen's pixels), to be kept.</summary>
     public event EventHandler<int>? Resized;
+
+    /// <summary>Dragged and let go: where the pointer was (the screen's pixels), to go onto that screen's taskbar.</summary>
+    public event EventHandler<PointInt32>? Dropped;
+
+    /// <summary>Being dragged (nothing else moves it meanwhile).</summary>
+    public bool IsMoving => _moving;
 
     /// <summary>How narrow and how wide its left edge may make it (the screen's pixels): the room it has.</summary>
     public (int Narrowest, int Widest) WidthRange { get; set; }
@@ -220,9 +251,50 @@ internal sealed class TaskbarLyricsWindow : Window
         var visual = ElementCompositionPreview.GetElementVisual(_frame);
         var compositor = visual.Compositor;
         var fade = compositor.CreateScalarKeyFrameAnimation();
-        fade.InsertKeyFrame(1, _hovered || IsResizing ? 1 : 0);
+        fade.InsertKeyFrame(1, _hovered || IsResizing || _moving ? 1 : 0);
         fade.Duration = HoverTime;
         visual.StartAnimation("Opacity", fade);
+    }
+
+    /// <summary>
+    /// Pressed on the lines and moved past a few pixels: no longer a click but a drag; it follows the pointer, onto
+    /// another screen if need be.
+    /// </summary>
+    private void Follow()
+    {
+        if (!_pressed || _press is not { } press || !NativeMethods.GetCursorPos(out var pointer))
+        {
+            return;
+        }
+
+        int dx = pointer.X - press.X;
+        int dy = pointer.Y - press.Y;
+        if (!_moving)
+        {
+            double threshold = 6 * (_root.XamlRoot?.RasterizationScale ?? 1);
+            if (Math.Abs(dx) < threshold && Math.Abs(dy) < threshold)
+            {
+                return;
+            }
+
+            _moving = true;
+            FadeFrame();
+        }
+
+        AppWindow.Move(new PointInt32(press.Left + dx, press.Top + dy));
+    }
+
+    private void EndMove()
+    {
+        _moving = false;
+        _pressed = false;
+        _press = null;
+        _root.ReleasePointerCaptures();
+        FadeFrame();
+        if (NativeMethods.GetCursorPos(out var pointer))
+        {
+            Dropped?.Invoke(this, new PointInt32(pointer.X, pointer.Y));
+        }
     }
 
     private void OnGripPressed(object sender, PointerRoutedEventArgs e)
@@ -323,8 +395,17 @@ internal sealed class TaskbarLyricsWindow : Window
         Fade(1);
     }
 
-    /// <summary>Fades out; then hidden (nothing drawn, nothing running).</summary>
-    public void Disappear() => Fade(0, () => AppWindow.Hide());
+    /// <summary>
+    /// Fades out; then hidden (nothing drawn, nothing running). Closed meanwhile (the lyrics taken off the taskbar), there
+    /// is no window left to hide.
+    /// </summary>
+    public void Disappear() => Fade(0, () =>
+    {
+        if (!_closed)
+        {
+            AppWindow?.Hide();
+        }
+    });
 
     private void Fade(float to, Action? done = null)
     {

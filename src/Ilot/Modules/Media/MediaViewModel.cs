@@ -20,6 +20,10 @@ public sealed class MediaViewModel : ObservableObject
     private static readonly TimeSpan SeekSettleTime = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan SeekTolerance = TimeSpan.FromSeconds(1.5);
 
+    // The cover is shown 72 logical pixels square at most (the open notch; 34 on the taskbar): decoded with its short side
+    // at that, and a little more. Decoded whole, a video's 1280 × 720 thumbnail took 3.5 MB, twice during a crossfade.
+    private const int ArtworkDecodeSize = 80;
+
     private readonly IMediaSessionService _media;
     private string _title = IdleTitle;
     private string _subtitle = IdleSubtitle;
@@ -195,11 +199,24 @@ public sealed class MediaViewModel : ObservableObject
             return;
         }
 
-        BitmapImage? image = new();
+        BitmapImage? image = new() { DecodePixelType = DecodePixelType.Logical };
         try
         {
             using var stream = new InMemoryRandomAccessStream();
             await stream.WriteAsync(artwork.Bytes.AsBuffer());
+            stream.Seek(0);
+
+            // Filling a square: its short side sets the size (the long one follows, in proportion).
+            var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream);
+            if (decoder.PixelWidth >= decoder.PixelHeight)
+            {
+                image.DecodePixelHeight = ArtworkDecodeSize;
+            }
+            else
+            {
+                image.DecodePixelWidth = ArtworkDecodeSize;
+            }
+
             stream.Seek(0);
             await image.SetSourceAsync(stream);
         }

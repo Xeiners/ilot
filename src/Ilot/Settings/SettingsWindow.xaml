@@ -750,7 +750,7 @@
                         </Grid>
                     </Border>
 
-                    <!--  How many results.  -->
+                    <!--  How many results show at once (the rest scroll).  -->
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Grid ColumnSpacing="16">
                             <Grid.ColumnDefinitions>
@@ -760,7 +760,7 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon FontSize="18" Glyph="&#xE8FD;" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Nombre de résultats" />
+                                <TextBlock Text="Résultats affichés" />
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -796,7 +796,7 @@
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="Un par ligne. « \node_modules\ » : où qu'il soit ; « C:\Windows\ » : celui-là."
+                                    Text="Un par ligne. « \node_modules\ » : où qu'il soit ; « C:\Windows\ » : celui-là. Ni montrés, ni indexés : moins de mémoire."
                                     TextWrapping="Wrap" />
                             </StackPanel>
                             <Button
@@ -1030,6 +1030,7 @@
                                     TextWrapping="Wrap" />
                             </StackPanel>
                             <ComboBox
+                                x:Name="LyricsPlaceBox"
                                 Grid.Column="2"
                                 MinWidth="200"
                                 VerticalAlignment="Center"
@@ -1878,6 +1879,117 @@
                                 MinWidth="220"
                                 VerticalAlignment="Center"
                                 SelectionChanged="OnModelChanged" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Its tools: acting on the PC when asked (see Modules/Assistant/AssistantTools).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE945;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Laisser Notch agir sur le PC" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Quand vous le lui demandez : voir l'écran, chercher des fichiers, lire ou écrire le presse-papier, ouvrir un fichier, une appli ou un projet, lancer une commande de diagnostic, créer, copier, déplacer ou supprimer un dossier ou un fichier, fermer des fenêtres. Les commandes, les fichiers, les fenêtres, les pages web et les programmes attendent votre accord ; une suppression le demande toujours."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                VerticalAlignment="Center"
+                                IsOn="{x:Bind Settings.AssistantActions, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Its commands without the user's yes (the read-only list; web pages and programs still ask).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE756;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Lancer les commandes sans demander" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Les commandes de diagnostic de sa liste (qui ne font que lire) s'exécutent tout de suite, à l'écrit comme à la voix. Les pages web et les programmes demandent toujours votre accord."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="2"
+                                MinWidth="0"
+                                VerticalAlignment="Center"
+                                IsEnabled="{x:Bind Settings.AssistantActions, Mode=OneWay}"
+                                IsOn="{x:Bind Settings.AssistantRunCommandsDirectly, Mode=TwoWay}"
+                                OffContent=""
+                                OnContent="" />
+                        </Grid>
+                    </Border>
+
+                    <!--  What the user allowed for good (« Toujours autoriser »), each to take back (see ShowAllowed).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16" RowSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE73E;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Toujours autorisé" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Ce que vous avez accepté avec « Toujours autoriser » : Notch ne vous le demande plus."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel
+                                x:Name="AllowedList"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Spacing="4" />
+                        </Grid>
+                    </Border>
+
+                    <!--  What Notch did to the files (created, copied, moved), the latest first, each to take back (see ShowJournal).  -->
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Grid ColumnSpacing="16" RowSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="18" Glyph="&#xE81C;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Ce que Notch a fait sur vos fichiers" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Chaque dossier ou fichier créé, copié, déplacé ou renommé, du plus récent au plus ancien. « Revenir en arrière » remet un déplacement à sa place, ou met ce qu'il a créé à la Corbeille. Ce qu'il supprime va à la Corbeille, toujours après votre accord."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel
+                                x:Name="JournalList"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Spacing="4" />
                         </Grid>
                     </Border>
 

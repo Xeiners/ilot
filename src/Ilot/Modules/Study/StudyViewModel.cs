@@ -78,6 +78,40 @@ public sealed class StudyViewModel(StudyStore store, StudyGenerator generator)
         {
             Sections.Add(section);
         }
+
+        _results.AddRange(await store.LoadResultsAsync());
+    }
+
+    private readonly List<StudyResult> _results = [];
+
+    /// <summary>A session finished: its grade kept, a row for each of its courses (those it had cards of).</summary>
+    public void Record(ReviewSession session)
+    {
+        var now = DateTimeOffset.Now;
+        long id = now.ToUnixTimeMilliseconds();
+        var rows = session.Decks
+            .Select(deck => new StudyResult(id, deck.Id, session.Scope, now, session.ScoreOf(deck.Id)))
+            .Where(row => row.Score.Cards > 0)
+            .ToList();
+        _results.AddRange(rows);
+        store.Save(rows);
+    }
+
+    /// <summary>
+    /// The sessions on <paramref name="scope"/>, the oldest first: for a course, its share of every session it was in
+    /// (on its own, or with others); for a section or all the courses, the sessions on it, whole.
+    /// </summary>
+    public IReadOnlyList<SessionPoint> History(string scope)
+    {
+        if (scope.StartsWith("deck:", StringComparison.Ordinal) && long.TryParse(scope.AsSpan(5), out long deckId))
+        {
+            return [.. _results.Where(result => result.DeckId == deckId).Select(result => new SessionPoint(result.Finished, result.Score))];
+        }
+
+        return [.. _results.Where(result => result.Scope == scope)
+            .GroupBy(result => result.Session)
+            .Select(session => new SessionPoint(session.First().Finished, session.Aggregate(default(SessionScore), (score, result) => score + result.Score)))
+            .OrderBy(point => point.Finished)];
     }
 
     /// <summary>A new section's colour, unless another is chosen: the next of the palette.</summary>
@@ -177,6 +211,33 @@ public sealed class StudyViewModel(StudyStore store, StudyGenerator generator)
         if (!deck.Busy)
         {
             _ = MakeAsync(deck);
+        }
+    }
+
+    /// <summary>
+    /// The summary sheet written again, with today's rules (its formulas drawn, only the parts that teach something); the
+    /// cards stay. Should it fail, the sheet it had comes back.
+    /// </summary>
+    public async Task RewriteSheetAsync(StudyDeck deck)
+    {
+        if (deck.Busy || deck.Summary.Length == 0)
+        {
+            return;
+        }
+
+        string old = deck.Summary;
+        var chapters = deck.Chapters;
+        deck.Chapters = StudyChapters.Contents(chapters);
+        deck.Summary = "";
+        await MakeAsync(deck);
+        if (deck.Summary.Length == 0)
+        {
+            deck.Summary = old;
+            deck.Chapters = chapters;
+            deck.SummaryStep = StudyStep.Done;
+            deck.Failed = false; // Nothing is missing: the course is as it was.
+            deck.Progress = "";
+            store.Save(deck);
         }
     }
 
@@ -431,6 +492,7 @@ public sealed class StudyViewModel(StudyStore store, StudyGenerator generator)
         }
 
         Decks.Remove(deck);
+        _results.RemoveAll(result => result.DeckId == deck.Id);
         store.Delete(deck);
     }
 

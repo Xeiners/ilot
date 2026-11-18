@@ -135,31 +135,68 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top"
                 IsHitTestVisible="False" />
-            <Border
-                x:Name="TalkPill"
-                Height="24"
-                Margin="0,0,0,10"
-                Padding="11,0,12,0"
+            <!--  Under the mascot: the microphone cut or back (talking), the pill (talk / hang up), and « Interrompre » (while  -->
+            <!--  it answers, aloud or in writing). Their own clicks: the stage's (talk or stop) is not theirs.  -->
+            <StackPanel
+                Height="38"
+                Margin="0,0,0,4"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
-                Background="#1AFFFFFF"
-                CornerRadius="12">
-                <StackPanel Orientation="Horizontal" Spacing="6">
+                Orientation="Horizontal"
+                Spacing="10">
+                <Button
+                    x:Name="MicButton"
+                    Width="38"
+                    Height="38"
+                    Padding="0"
+                    VerticalAlignment="Center"
+                    AllowFocusOnInteraction="False"
+                    AutomationProperties.Name="Couper le micro"
+                    BorderThickness="0"
+                    CornerRadius="19"
+                    Visibility="Collapsed">
                     <FontIcon
-                        x:Name="TalkPillGlyph"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Foreground="#E6FFFFFF"
+                        x:Name="MicGlyph"
+                        FontSize="16"
                         Glyph="&#xE720;" />
-                    <TextBlock
-                        x:Name="TalkPillText"
-                        VerticalAlignment="Center"
-                        FontFamily="Segoe UI Variable Text"
-                        FontSize="11.5"
-                        Foreground="#E6FFFFFF"
-                        Text="Parler" />
-                </StackPanel>
-            </Border>
+                </Button>
+                <Border
+                    x:Name="TalkPill"
+                    Height="24"
+                    Padding="11,0,12,0"
+                    VerticalAlignment="Center"
+                    Background="#1AFFFFFF"
+                    CornerRadius="12">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon
+                            x:Name="TalkPillGlyph"
+                            VerticalAlignment="Center"
+                            FontSize="10"
+                            Foreground="#E6FFFFFF"
+                            Glyph="&#xE720;" />
+                        <TextBlock
+                            x:Name="TalkPillText"
+                            VerticalAlignment="Center"
+                            FontFamily="Segoe UI Variable Text"
+                            FontSize="11.5"
+                            Foreground="#E6FFFFFF"
+                            Text="Parler" />
+                    </StackPanel>
+                </Border>
+                <Button
+                    x:Name="InterruptButton"
+                    Width="38"
+                    Height="38"
+                    Padding="0"
+                    VerticalAlignment="Center"
+                    AllowFocusOnInteraction="False"
+                    AutomationProperties.Name="Interrompre"
+                    BorderThickness="0"
+                    CornerRadius="19"
+                    Visibility="Collapsed">
+                    <FontIcon FontSize="13" Glyph="&#xE71A;" />
+                </Button>
+            </StackPanel>
         </Grid>
     </Grid>
 </UserControl>

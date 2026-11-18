@@ -21,6 +21,10 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16)]
     public static partial nint FindWindow(string? className, string? windowName);
 
+    /// <summary>The next top-level window of a class after <paramref name="after"/> (the taskbars of the other screens).</summary>
+    [LibraryImport("user32.dll", EntryPoint = "FindWindowExW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial nint FindWindowEx(nint parent, nint after, string? className, string? windowName);
+
     [LibraryImport("user32.dll", EntryPoint = "SendMessageTimeoutW")]
     public static partial nint SendMessageTimeout(nint hwnd, uint message, nint wParam, nint lParam, uint flags, uint timeout, out nint result);
 

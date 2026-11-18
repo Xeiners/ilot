@@ -107,12 +107,16 @@ public sealed class SettingsStore : IDisposable
                 settings.NoteWindowOnTop = stored.NoteWindowOnTop;
                 settings.LyricsPlace = stored.LyricsPlace;
                 settings.LyricsTaskbarWidth = stored.LyricsTaskbarWidth;
+                settings.LyricsTaskbarScreen = stored.LyricsTaskbarScreen ?? "";
                 settings.HidePlayerInNotch = stored.HidePlayerInNotch;
                 settings.StudySection = stored.StudySection;
                 settings.StayOpenAfterClick = stored.StayOpenAfterClick;
                 settings.AutoUpdate = stored.AutoUpdate;
                 settings.BoostOn = stored.BoostOn;
                 settings.BoostLevels = stored.BoostLevels ?? new Dictionary<string, double>();
+                settings.AssistantActions = stored.AssistantActions;
+                settings.AssistantRunCommandsDirectly = stored.AssistantRunCommandsDirectly;
+                settings.AssistantAllowed = stored.AssistantAllowed ?? [];
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -147,7 +151,8 @@ public sealed class SettingsStore : IDisposable
                 Settings.SearchShortcut, Settings.SearchShortcutOn, Settings.Welcomed, Settings.StudySounds, Settings.StudySoundVolume,
                 Settings.CourseWindowBounds, Settings.CourseWindowOnTop, Settings.NoteWindowBounds, Settings.NoteWindowOnTop,
                 Settings.LyricsPlace, Settings.LyricsTaskbarWidth, Settings.StudySection, Settings.StayOpenAfterClick,
-                Settings.HidePlayerInNotch, Settings.AutoUpdate, Settings.BoostOn, new Dictionary<string, double>(Settings.BoostLevels));
+                Settings.HidePlayerInNotch, Settings.AutoUpdate, Settings.BoostOn, new Dictionary<string, double>(Settings.BoostLevels),
+                Settings.LyricsTaskbarScreen, Settings.AssistantActions, Settings.AssistantRunCommandsDirectly, [.. Settings.AssistantAllowed]);
             File.WriteAllText(FilePath, JsonSerializer.Serialize(stored, Json));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -221,5 +226,9 @@ public sealed class SettingsStore : IDisposable
         bool HidePlayerInNotch = false,
         bool AutoUpdate = true,
         bool BoostOn = false,
-        Dictionary<string, double>? BoostLevels = null);
+        Dictionary<string, double>? BoostLevels = null,
+        string? LyricsTaskbarScreen = "",
+        bool AssistantActions = true,
+        bool AssistantRunCommandsDirectly = false,
+        List<string>? AssistantAllowed = null);
 }

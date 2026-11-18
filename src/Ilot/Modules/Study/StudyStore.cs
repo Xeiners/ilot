@@ -186,6 +186,34 @@ public sealed class StudyStore : IDisposable
         });
     }
 
+    /// <summary>The sessions' grades, the oldest first; none when the database cannot be read.</summary>
+    public async Task<IReadOnlyList<StudyResult>> LoadResultsAsync() =>
+        await Run(db => db.Query(
+            "SELECT session, deck_id, scope, finished_at, again, hard, good, easy FROM Results ORDER BY finished_at, session",
+            row => new StudyResult(row.Int64(0), row.Int64(1), row.Text(2), FromStored(row.Int64(3)),
+                new SessionScore((int)row.Int64(4), (int)row.Int64(5), (int)row.Int64(6), (int)row.Int64(7))))) ?? [];
+
+    /// <summary>Writes a finished session's grades (a row for each of its courses), in one go.</summary>
+    public void Save(IReadOnlyList<StudyResult> results)
+    {
+        var rows = results.Select(result => (result.Session, result.DeckId, result.Scope, Finished: ToStored(result.Finished),
+            Again: (long)result.Score.Again, Hard: (long)result.Score.Hard, Good: (long)result.Score.Good, Easy: (long)result.Score.Easy)).ToList();
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        _ = Run(db => InTransaction(db, () =>
+        {
+            foreach (var row in rows)
+            {
+                db.Execute(
+                    "INSERT OR REPLACE INTO Results (session, deck_id, scope, finished_at, again, hard, good, easy) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    row.Session, row.DeckId, row.Scope, row.Finished, row.Again, row.Hard, row.Good, row.Easy);
+            }
+        }));
+    }
+
     /// <summary>The sections, in their order; none when the database cannot be read.</summary>
     public async Task<IReadOnlyList<StudySection>> LoadSectionsAsync()
     {
@@ -234,6 +262,7 @@ public sealed class StudyStore : IDisposable
         _ = Run(db => InTransaction(db, () =>
         {
             db.Execute("DELETE FROM Cards WHERE deck_id = ?1", id);
+            db.Execute("DELETE FROM Results WHERE deck_id = ?1", id);
             db.Execute("DELETE FROM Decks WHERE id = ?1", id);
             try
             {
@@ -394,6 +423,21 @@ public sealed class StudyStore : IDisposable
             {
                 db.Execute("ALTER TABLE Decks ADD COLUMN section INTEGER NOT NULL DEFAULT 0");
             }
+
+            // The sessions' grades, a row for each course in a session (see StudyResult).
+            db.Execute("""
+                CREATE TABLE IF NOT EXISTS Results (
+                    session INTEGER NOT NULL,
+                    deck_id INTEGER NOT NULL,
+                    scope TEXT NOT NULL DEFAULT '',
+                    finished_at INTEGER NOT NULL,
+                    again INTEGER NOT NULL DEFAULT 0,
+                    hard INTEGER NOT NULL DEFAULT 0,
+                    good INTEGER NOT NULL DEFAULT 0,
+                    easy INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (session, deck_id))
+                """);
+            db.Execute("CREATE INDEX IF NOT EXISTS Results_deck ON Results (deck_id)");
 
             // Cards made before the multiple choices: their columns come, empty (Notch fills them, see StudyViewModel).
             foreach (string column in new[] { "choice", "decoys" })

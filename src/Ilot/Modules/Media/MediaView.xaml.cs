@@ -23,7 +23,7 @@ namespace Ilot.Modules.Media;
 /// Media module view, choreographed by the notch morph.
 /// </summary>
 /// <remarks>
-/// Collapsed, the artwork and the live visualizer ride the edges of the pill. As the notch opens they glide to
+/// Collapsed, the artwork (only beside the sung line) and the live visualizer ride the edges of the pill. As the notch opens they glide to
 /// their expanded place (a connected animation driven by the morph itself, so it stays perfect when the motion is
 /// interrupted) while the title, the controls and the timeline bloom in. Expressions reference the notch state as
 /// <c>n</c> (see <see cref="NotchMotion"/>), the tab selection as <c>t</c> (see <see cref="NotchContext"/>) and this
@@ -40,7 +40,6 @@ public sealed partial class MediaView : UserControl
     // In lyrics mode the closed pill widens like a live activity, to give the sung line room. The open notch keeps
     // its size: lyrics only take the place of the title and the artist.
     private const double CompactLyricsWidth = 380;
-    private const double MascotRoom = 32; // The mascot at the closed pill's right end (NotchView: 28 px, 4 px from the end).
 
     // Smallest artwork corner radius, should the notch corners ever be tighter than the artwork margin.
     private const float MinArtworkRadius = 4;
@@ -65,6 +64,15 @@ public sealed partial class MediaView : UserControl
 
     private const int WheelNotch = 120;
 
+    /// <summary>
+    /// What the open player's parts weigh for the tab, besides <see cref="OpenContent"/>'s own fade (which spares the pill,
+    /// shown closed whatever the tab): 1 on the player's tab, 0 on another. They bloom in with the opening only when the
+    /// notch opens onto the player: opening onto another tab (the search…), they never ghost in on their way out. Once
+    /// open, 1: OpenContent alone fades them as the tabs change.
+    /// </summary>
+    private const string TabBloom =
+        "Clamp(" + NotchContext.TabOpacity + " / Max(Lerp(1, " + NotchContext.TabOpacity + ", n.Progress), 0.01), 0, 1)";
+
     // How long the "connected" / "disconnected" card shows.
     private static readonly TimeSpan DeviceCardTime = TimeSpan.FromMilliseconds(2500);
 
@@ -85,6 +93,7 @@ public sealed partial class MediaView : UserControl
     private readonly SpringChannel _timelineShown;
     private readonly SpringChannel _lyricsShown;
     private readonly SpringChannel _pillLyrics; // The sung line on the closed pill (not when it goes on the taskbar).
+    private readonly SpringChannel _pillArt; // The artwork on the closed pill: only beside the sung line (see InPill).
     private TaskbarLyrics? _taskbarLyrics;
     private int _wheel;
     private readonly SolidColorBrush _accentBrush;
@@ -135,6 +144,7 @@ public sealed partial class MediaView : UserControl
         _timelineShown = new SpringChannel(_state, "Timeline", viewModel.Timeline.IsKnown ? 1 : 0);
         _lyricsShown = new SpringChannel(_state, "Lyrics", lyrics.IsShown ? 1 : 0);
         _pillLyrics = new SpringChannel(_state, "PillLyrics", InPill ? 1 : 0);
+        _pillArt = new SpringChannel(_state, "PillArt", InPill ? 1 : 0);
         _state.InsertScalar("KeepBack", 1);
         _state.InsertScalar("Bass", 0);
 
@@ -217,7 +227,7 @@ public sealed partial class MediaView : UserControl
         _context.SelectionChanged += (_, _) => UpdateClock();
 
         // The system volume: the wheel anywhere on the player (the notch's own bubble shows and sets it too).
-        Bind("Clamp((n.Expansion - 0.5) * 2.4, 0, 1)").Start(VisualOf(LyricsButton), "Opacity");
+        Bind($"Clamp((n.Expansion - 0.5) * 2.4, 0, 1) * {TabBloom}").Start(VisualOf(LyricsButton), "Opacity");
         _context.Wheel += (_, delta) => OnWheel(delta);
 
         // An audio device connected or disconnected: the closed notch grows down for a moment to say so.
@@ -314,13 +324,14 @@ public sealed partial class MediaView : UserControl
         Bind("Max(m.KeepBack, 1 - m.Art)").Start(VisualOf(ArtworkBack), "Opacity");
 
         // Ambient light: blooms with the opening, only when something plays, and breathes with the bass. It fades
-        // with the player's tab but never slides: it must always end inside the shape.
-        Bind($"Clamp(n.Progress * m.Present * (0.75 + 0.6 * m.Bass), 0, 1) * Lerp(1, {NotchContext.TabOpacity}, n.Progress)")
+        // with the player's tab (none on another: it is out of OpenContent) but never slides: it must always end
+        // inside the shape.
+        Bind($"Clamp(n.Progress * m.Present * (0.75 + 0.6 * m.Bass), 0, 1) * {NotchContext.TabOpacity}")
             .Start(_glow, "Opacity");
 
         // Right column: lyrics when the track has some, the large visualizer otherwise; both bloom in with the
         // opening, slightly after the player, and cross-fade when lyrics arrive.
-        const string SideReveal = "Clamp((n.Expansion - 0.5) * 2.4, 0, 1)";
+        const string SideReveal = $"Clamp((n.Expansion - 0.5) * 2.4, 0, 1) * {TabBloom}";
         var lyrics = VisualOf(LyricsLines);
         Bind($"{SideReveal} * Clamp(m.Lyrics, 0, 1)").Start(lyrics, "Opacity");
         Bind("Vector3(0, (1 - n.Progress) * -8 + (1 - Clamp(m.Lyrics, 0, 1)) * 6, 0)").Start(lyrics, "Translation");
@@ -384,7 +395,11 @@ public sealed partial class MediaView : UserControl
         Bind("Vector3((w - n.Width) * 0.5 + Lerp(ci, ax, n.Progress) - ax, Lerp(ci, ay, n.Progress) - ay, 0)")
             .With("w", width).With("ci", CompactInset).With("ax", artwork.X).With("ay", artwork.Y)
             .Start(artworkVisual, "Translation");
-        Bind("Max(Clamp(m.Present, 0, 1) * Clamp(m.Pill, 0, 1), Clamp(n.Expansion * 2.2 - 0.6, 0, 1))").Start(artworkVisual, "Opacity");
+        // Closed, only beside the sung line (m.PillArt): without lyrics on the pill (none, or on the taskbar, which has its
+        // own), the mascot or the visualizer is enough to say music plays. It blooms in with the opening either way, on
+        // the player's tab only (TabBloom).
+        Bind($"Max(Clamp(m.Present, 0, 1) * Clamp(m.Pill, 0, 1) * Clamp(m.PillArt, 0, 1), Clamp(n.Expansion * 2.2 - 0.6, 0, 1) * {TabBloom})")
+            .Start(artworkVisual, "Opacity");
 
         // Corners that hug the notch. The corner facing the notch's own rounded corner is concentric with it
         // (notch radius minus the artwork margin: the gap between both curves stays even), the others keep a
@@ -431,26 +446,27 @@ public sealed partial class MediaView : UserControl
             .Start(VisualOf(Equalizer), "Translation");
         // On the pill, it gives way to announcements (n.Toast), which take over the right end.
         // With the mascot (n.Mascot), the pill's right end is its: the bars show only on the title line.
-        // Off the pill when the taskbar shows the track (m.Pill).
-        Bind("Clamp(m.Present, 0, 1) * Lerp(Clamp(m.Pill, 0, 1), 1, n.Progress) * (1 - Clamp(n.Toast, 0, 1) * (1 - n.Progress)) * Lerp(1 - n.Mascot, 1, n.Progress)")
+        // Off the pill when the taskbar shows the track (m.Pill). On the title line, on the player's tab only (TabBloom):
+        // opening onto another, the pill's bars just fade.
+        Bind($"Clamp(m.Present, 0, 1) * Lerp(Clamp(m.Pill, 0, 1), {TabBloom}, n.Progress) * (1 - Clamp(n.Toast, 0, 1) * (1 - n.Progress)) * Lerp(1 - n.Mascot, {TabBloom}, n.Progress)")
             .Start(VisualOf(Equalizer), "Opacity");
 
         BindCompactLyrics(compactHeight, equalizerWidth);
 
-        // Title, controls and timeline bloom in during the second half of the opening, and leave first.
+        // Title, controls and timeline bloom in during the second half of the opening (on the player's tab), and leave first.
         var detailsVisual = VisualOf(Details);
         detailsVisual.CenterPoint = new Vector3(0, (float)Details.ActualHeight / 2, 0);
-        Bind("Clamp((n.Expansion - 0.4) * 2.4, 0, 1)").Start(detailsVisual, "Opacity");
+        Bind($"Clamp((n.Expansion - 0.4) * 2.4, 0, 1) * {TabBloom}").Start(detailsVisual, "Opacity");
         Bind("Vector3(Lerp(0.94, 1, n.Progress), Lerp(0.94, 1, n.Progress), 1)").Start(detailsVisual, "Scale");
         Bind("Vector3(0, (1 - n.Progress) * -10, 0)").Start(detailsVisual, "Translation");
 
         var controls = VisualOf(TransportControls);
         controls.CenterPoint = new Vector3((float)TransportControls.ActualWidth / 2, (float)TransportControls.ActualHeight / 2, 0);
-        Bind("Clamp((n.Expansion - 0.5) * 2.6, 0, 1)").Start(controls, "Opacity");
+        Bind($"Clamp((n.Expansion - 0.5) * 2.6, 0, 1) * {TabBloom}").Start(controls, "Opacity");
         Bind("Vector3(Lerp(0.7, 1, n.Progress), Lerp(0.7, 1, n.Progress), 1)").Start(controls, "Scale");
 
         var timeline = VisualOf(TimelineRow);
-        Bind("Clamp((n.Expansion - 0.55) * 2.6, 0, 1) * Clamp(m.Timeline, 0, 1)").Start(timeline, "Opacity");
+        Bind($"Clamp((n.Expansion - 0.55) * 2.6, 0, 1) * Clamp(m.Timeline, 0, 1) * {TabBloom}").Start(timeline, "Opacity");
         Bind("Vector3(0, (1 - n.Progress) * -8, 0)").Start(timeline, "Translation");
 
         VisualOf(LayoutRoot).Opacity = 1;
@@ -513,9 +529,8 @@ public sealed partial class MediaView : UserControl
     }
 
     /// <summary>
-    /// The closed pill as wide as what the player shows on it: the sung line (wide); else only the artwork and, at the
-    /// other end, the mascot or the visualizer, side by side, with no empty room between them. No track (or the player
-    /// elsewhere): the notch's own width.
+    /// The closed pill as wide as what the player shows on it: the sung line between the artwork and the visualizer
+    /// (wide); else only the mascot (round) or the visualizer. No track (or the player elsewhere): the notch's own width.
     /// </summary>
     private void SizePill()
     {
@@ -525,18 +540,13 @@ public sealed partial class MediaView : UserControl
         _context.RequestCompactWidth(width);
     }
 
-    /// <summary>The artwork, a gap, then the mascot (or, without it, the visualizer).</summary>
-    private double NarrowPill
-    {
-        get
-        {
-            double artwork = _motion.Layout.Collapsed.Height - CompactInset;
-            double end = _settings.ShowMascot
-                ? MascotRoom
-                : _bars.Length * BarWidth + (_bars.Length - 1) * Equalizer.Spacing + CompactEqualizerInset;
-            return artwork + CompactGap + end;
-        }
-    }
+    /// <summary>
+    /// No sung line on the pill, no artwork either (see <see cref="_pillArt"/>): the mascot alone, in a round pill (as tall
+    /// as wide: it sits centred, dancing), or, without it, the visualizer alone, as far from both ends.
+    /// </summary>
+    private double NarrowPill => _settings.ShowMascot
+        ? _motion.Layout.Collapsed.Height
+        : _bars.Length * BarWidth + (_bars.Length - 1) * Equalizer.Spacing + 2 * CompactEqualizerInset;
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -626,6 +636,7 @@ public sealed partial class MediaView : UserControl
     {
         _lyricsShown.AnimateTo(Lyrics.IsShown ? 1 : 0, Motion.Fade);
         _pillLyrics.AnimateTo(InPill ? 1 : 0, Motion.Fade);
+        _pillArt.AnimateTo(InPill ? 1 : 0, Motion.Fade);
         SizePill();
 
         // The lyrics button is lit while lyrics are on, dimmed when they are off.

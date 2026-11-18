@@ -211,7 +211,7 @@
                 Spacing="2" />
         </Grid>
 
-        <!--  Shown while the notch is pinned open (double-click).  -->
+        <!--  Shown while the notch is pinned open (« Garder ouverte », in its menu).  -->
         <Border
             x:Name="PinIndicator"
             Width="22"

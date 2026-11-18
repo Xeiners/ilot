@@ -58,6 +58,7 @@ public sealed partial class DetachedWindow : Window
         _hwnd = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         ConfigureChrome();
         Place(from, size);
+        Closed += (_, _) => MemoryTrim.Schedule(); // What the sheet used, given back once the notch is left alone.
 
         Holder.Content = sheet;
         _sheet.RoundCorners(Radius);

@@ -27,8 +27,8 @@ public static class TourSteps
         {
             new(TourTarget.Notch, "\uE7C4", Loc.T("Voici votre notch"),
                 settings.StayOpenAfterClick
-                    ? Loc.T("Survolez sa petite poignée en haut de l'écran pour l'ouvrir ; elle se referme quand la souris s'en va. Un clic dedans la garde ouverte jusqu'à un clic ailleurs ; un double-clic l'épingle.")
-                    : Loc.T("Survolez sa petite poignée en haut de l'écran pour l'ouvrir ; elle se referme quand la souris s'en va. Un double-clic la garde ouverte.")),
+                    ? Loc.T("Survolez sa petite poignée en haut de l'écran pour l'ouvrir ; elle se referme quand la souris s'en va. Un clic dedans la garde ouverte jusqu'à un clic ailleurs ; « Garder ouverte », au clic droit, l'épingle.")
+                    : Loc.T("Survolez sa petite poignée en haut de l'écran pour l'ouvrir ; elle se referme quand la souris s'en va. Pour la garder ouverte : clic droit, « Garder ouverte ».")),
             new(TourTarget.Tabs, "\uE8A9", Loc.T("Les onglets"),
                 Loc.T("Chaque onglet est un outil : la musique en cours, vos dernières copies, le partage de fichiers, les notes, vos révisions et le Pomodoro."),
                 NeedsTarget: true)

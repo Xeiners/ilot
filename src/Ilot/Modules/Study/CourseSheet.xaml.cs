@@ -52,6 +52,8 @@ public sealed partial class CourseSheet : UserControl, IDetachableSheet
     private readonly AppSettings _settings;
     private readonly ReviewView _review;
     private readonly DispatcherQueueTimer _deleteTimer;
+    private readonly DispatcherQueueTimer _rewriteTimer;
+    private bool _confirmingRewrite;
     private readonly DispatcherQueueTimer _copyTimer;
     private readonly DispatcherQueueTimer _clock;
     private readonly Brush _chosenBrush = new SolidColorBrush(Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF));
@@ -120,6 +122,7 @@ public sealed partial class CourseSheet : UserControl, IDetachableSheet
         };
 
         _deleteTimer = CreateTimer(ConfirmTime, ResetDelete);
+        _rewriteTimer = CreateTimer(ConfirmTime, ResetRewrite);
 
         // While Notch works, the time it has taken so far, by the second: it is at work, not stuck.
         _clock = DispatcherQueue.GetForCurrentThread().CreateTimer();
@@ -209,7 +212,7 @@ public sealed partial class CourseSheet : UserControl, IDetachableSheet
         }
         else
         {
-            _review.Start(new ReviewSession(deck is null ? (_scope ?? ViewModel.Decks).Where(each => !each.Busy).ToList() : [deck]));
+            _review.Start(new ReviewSession(deck is null ? (_scope ?? ViewModel.Decks).Where(each => !each.Busy).ToList() : [deck], ReviewSession.ScopeOf(deck, _scopeName), whole: deck is not null));
         }
 
         _focus = CardFocus.All;
@@ -750,6 +753,33 @@ public sealed partial class CourseSheet : UserControl, IDetachableSheet
         _copyTimer.Start();
     }
 
+    /// <summary>A first click asks (« Confirmer ? »), a second one has Notch write the sheet again; the cards stay.</summary>
+    private void OnRewriteSheetClick(object sender, RoutedEventArgs e)
+    {
+        if (_deck is not { Busy: false, Summary.Length: > 0 } deck)
+        {
+            return;
+        }
+
+        if (!_confirmingRewrite)
+        {
+            _confirmingRewrite = true;
+            RewriteSheetText.Text = Loc.T("Confirmer ?");
+            _rewriteTimer.Start();
+            return;
+        }
+
+        ResetRewrite();
+        _ = ViewModel.RewriteSheetAsync(deck);
+    }
+
+    private void ResetRewrite()
+    {
+        _rewriteTimer.Stop();
+        _confirmingRewrite = false;
+        RewriteSheetText.Text = Loc.T("Refaire la fiche");
+    }
+
     // ── The cards ───────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Every card of the course, chapter after chapter, the way they are worded; each one editable.</summary>
@@ -772,16 +802,16 @@ public sealed partial class CourseSheet : UserControl, IDetachableSheet
     private FrameworkElement Row(StudyDeck deck, StudyCard card, DateTimeOffset now)
     {
         var text = new StackPanel { Spacing = 6 };
-        text.Children.Add(Text(card.Question, 14, primary: true, semibold: true));
-        text.Children.Add(Text(card.Answer, 13, primary: false));
+        text.Children.Add(CardText(card.Question, 14, primary: true, semibold: true));
+        text.Children.Add(CardText(card.Answer, 13, primary: false));
         if (card.HasChoices)
         {
             // The four choices: the right one lit green, the decoys plain.
             var wrap = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5 };
-            wrap.Children.Add(StudySheet.Chip(card.Choice, Right));
+            wrap.Children.Add(StudySheet.Chip(StudyMath.Plain(card.Choice), Right));
             foreach (string decoy in card.Decoys)
             {
-                wrap.Children.Add(StudySheet.Chip(decoy));
+                wrap.Children.Add(StudySheet.Chip(StudyMath.Plain(decoy)));
             }
 
             text.Children.Add(new ScrollViewer
@@ -913,6 +943,15 @@ public sealed partial class CourseSheet : UserControl, IDetachableSheet
         TextWrapping = TextWrapping.Wrap,
         IsTextSelectionEnabled = true,
     };
+
+    /// <summary>A card's question or answer, its formulas drawn if it has some.</summary>
+    private static FrameworkElement CardText(string text, double size, bool primary, bool semibold = false)
+    {
+        var block = Text(text, size, primary, semibold);
+        return StudyMath.Has(text)
+            ? StudyMathView.Render(text, new MathStyle(block.FontFamily, size, block.FontWeight, block.Foreground, size * 1.5))
+            : block;
+    }
 
     private static MotionButton IconButton(string glyph, string name)
     {
@@ -1313,7 +1352,7 @@ public sealed partial class CourseSheet : UserControl, IDetachableSheet
         if (made > 0 && _deck == deck)
         {
             MoreStatus.Text = Loc.F("+{0}, ajoutées au cours. Elles arrivent dans vos révisions.", Loc.Count(made, "carte", "cartes"));
-            _review.Extend(new ReviewSession([deck])); // The new cards are met in this session too.
+            _review.Extend(new ReviewSession([deck], ReviewSession.ScopeOf(deck, null), whole: true)); // The new cards come in the next session (in this one, if none was answered).
         }
     }
 

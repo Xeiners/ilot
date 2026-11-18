@@ -6,7 +6,7 @@ using Ilot.Localization;
 namespace Ilot.Modules.DropZone.Local;
 
 /// <summary>
-/// The page the phone or other computer opens from the QR code or <c>mynotch.local</c>: a live chat and drop zone
+/// The page the phone or other computer opens from the QR code or <c>ilot.local</c>: a live chat and drop zone
 /// where texts, links, pasted images and files flow both ways in real time. Self-contained (no font, script or image
 /// from the Internet: it must work on a local network without any).
 /// </summary>
@@ -173,6 +173,11 @@ internal static class LocalPage
                      font:600 13px system-ui, sans-serif; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; z-index:120;
                      box-shadow:0 8px 24px #00000080; white-space:nowrap; }
               #toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
+              #offline { position:fixed; top:max(14px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+                     max-width:calc(100% - 32px); background:#3a2a12; color:#ffd59a; border:1px solid #ffb84d55; padding:8px 16px;
+                     border-radius:16px; font:600 13px system-ui, sans-serif; text-align:center; z-index:110; display:none;
+                     box-shadow:0 8px 24px #00000080; }
+              #offline.on { display:block; }
               #lightbox { position:fixed; inset:0; z-index:100; background:#000000eb; backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
                      display:none; flex-direction:column; justify-content:space-between;
                      padding:max(14px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
@@ -195,6 +200,7 @@ internal static class LocalPage
             </head>
             <body>
             <div id="toast"></div>
+            <div id="offline">Le PC ne répond plus : si le partage a été fermé, rouvrez-le sur la notch et scannez le nouveau code.</div>
 
             <div id="lightbox">
               <div class="lb-top">
@@ -670,7 +676,9 @@ internal static class LocalPage
                 scrollToBottom(false);
               }
 
+              const offlineEl = document.getElementById('offline');
               async function poll() {
+                let misses = 0;
                 for (;;) {
                   try {
                     const res = await fetch(apiUrl('chat/events?since=' + seq), { cache: 'no-store' });
@@ -678,10 +686,13 @@ internal static class LocalPage
                     const data = await res.json();
                     if (typeof data.seq === 'number') seq = data.seq;
                     for (const item of data.items || []) upsert(item, true);
+                    misses = 0;
+                    offlineEl.classList.remove('on');
                   } catch {
                     if (ipBase && activeBase !== ipBase) {
                       activeBase = ipBase;
                     }
+                    if (++misses >= 3) offlineEl.classList.add('on');
                     await new Promise(r => setTimeout(r, 1500));
                   }
                 }

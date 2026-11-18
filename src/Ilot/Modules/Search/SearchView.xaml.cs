@@ -288,9 +288,11 @@ public sealed partial class SearchView : UserControl
             return;
         }
 
+        // The drop first: the list is laid out at its new height when it scrolls to the line chosen.
         var results = _viewModel.Results;
-        _panel.Show(results, _viewModel.Query, _viewModel.Icons, _viewModel.Confirming);
-        ShowDrop(SearchResultsPanel.SizeFor(results.Count));
+        int lines = _viewModel.Lines;
+        ShowDrop(SearchResultsPanel.SizeFor(Math.Min(results.Count, lines)));
+        _panel.Show(results, lines, _viewModel.Query, _viewModel.Icons, _viewModel.Confirming);
     }
 
     private void DropResults()
@@ -419,6 +421,14 @@ public sealed partial class SearchView : UserControl
 
             case VirtualKey.Up:
                 _panel.Move(-1);
+                break;
+
+            case VirtualKey.PageDown:
+                _panel.Page(1);
+                break;
+
+            case VirtualKey.PageUp:
+                _panel.Page(-1);
                 break;
 
             case VirtualKey.Enter:

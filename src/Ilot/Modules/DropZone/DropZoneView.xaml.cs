@@ -98,7 +98,7 @@ public sealed partial class DropZoneView : UserControl, INotchDropTarget
         ChatHolder.Children.Remove(ChatSheet);
         ChatBox.GotFocus += (_, _) => TakeKeyboard();
         ChatBox.TextChanged += (_, _) => ChatBoxHint.Visibility = ChatBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        ChatBox.KeyDown += OnChatBoxKeyDown;
+        ChatBox.PreviewKeyDown += OnChatBoxKeyDown;
         ChatBox.Paste += OnChatBoxPaste;
         KeyDown += OnViewKeyDown;
 
@@ -394,7 +394,7 @@ public sealed partial class DropZoneView : UserControl, INotchDropTarget
         SyncChatBubble();
     }
 
-    private void OnSendChatClick(object sender, RoutedEventArgs e) => SendTypedChat();
+    private async void OnSendChatClick(object sender, RoutedEventArgs e) => await SendTypedChatAsync();
 
     private void OnOpenReceivedClick(object sender, RoutedEventArgs e) => ViewModel.Local.OpenReceived();
 
@@ -625,10 +625,19 @@ public sealed partial class DropZoneView : UserControl, INotchDropTarget
         FullPreviewImage.Source = null;
     }
 
-    private void SendTypedChat()
+    /// <summary>
+    /// The typed message, its lines kept. Should the sharing have stopped meanwhile (ten minutes without anyone), it starts
+    /// again first (with a new code): the message is never lost silently, it stays in the field if it cannot go.
+    /// </summary>
+    private async Task SendTypedChatAsync()
     {
-        string text = ChatBox.Text;
+        string text = ChatBox.Text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
         if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        if (!ViewModel.Local.IsActive && !await ViewModel.Local.StartAsync([]))
         {
             return;
         }
@@ -637,16 +646,23 @@ public sealed partial class DropZoneView : UserControl, INotchDropTarget
         {
             ChatBox.Text = "";
             ChatBox.Focus(FocusState.Programmatic);
+            SyncChatBubble();
         }
     }
 
-    private void OnChatBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    /// <summary>Enter sends; Shift+Enter goes to the line (seen before the field, which would take Enter for a new line).</summary>
+    private async void OnChatBoxKeyDown(object sender, KeyRoutedEventArgs e)
     {
         switch (e.Key)
         {
             case Windows.System.VirtualKey.Enter:
+                if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down))
+                {
+                    return; // A new line.
+                }
+
                 e.Handled = true;
-                SendTypedChat();
+                await SendTypedChatAsync();
                 break;
 
             case Windows.System.VirtualKey.Escape:

@@ -132,9 +132,8 @@
                 FontFamily="Segoe UI Variable Text"
                 FontSize="13.5"
                 Foreground="{StaticResource NotchPrimaryTextBrush}"
+                IsTextSelectionEnabled="True"
                 LineHeight="19"
-                MaxLines="12"
-                TextTrimming="CharacterEllipsis"
                 TextWrapping="Wrap"
                 Visibility="Collapsed" />
 

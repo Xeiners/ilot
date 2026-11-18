@@ -21,8 +21,15 @@ en haut au centre (sa poignée), elle s'ouvre (660 × 158) avec une barre d'ongl
   réponse et trois pièges tirés du cours ; 1 à 4 ou un clic, « Je ne sais pas »), puis sa réponse complète et sa page ;
   révision espacée comme Anki (la note proposée selon la réponse, Espace pour la donner, 1 à 4 pour « À revoir / Difficile
   / Bien / Facile » ; chaque carte revient au bon moment), « Réviser · 23 »
-  pour tout ce qui est dû, et **« Nouvelles cartes »** à volonté (tout le cours, un chapitre ou vos points faibles ; 10,
-  20 ou 30, jamais deux fois la même notion). Cartes modifiables ou supprimables ; tout reste sur l'ordinateur.
+  pour tout ce qui est dû. Réviser un cours fait passer **toutes ses cartes, mélangées** (« Carte 3 sur 20 », une barre) ;
+  à la dernière, une **note sur 20** (Bien et Facile comptent 1, Difficile ½, À revoir 0), le détail, l'écart avec la
+  session d'avant et les dernières sessions en barres. « **Recommencer** » (Espace) : les mêmes cartes dans un autre
+  ordre ; les cartes générées entre-temps s'y ajoutent (20 + 20 = 40, mélangées). Le bouton **Historique** (en haut à
+  droite) montre toutes les notes du cours : moyenne, meilleure, dernière, les barres, puis chaque session (date, note,
+  détail, écart). Refaire une carte avant son heure compte pour la note sans toucher à sa répétition espacée.
+  « Réviser » sur une section ou sur tout reste à la Anki : les cartes dues, mélangées.
+  **« Nouvelles cartes »** à volonté (tout le cours, un chapitre ou vos points faibles ; 10, 20 ou 30, jamais deux fois
+  la même notion). Cartes modifiables ou supprimables ; tout reste sur l'ordinateur.
   Les cours se rangent en **sections** (Maths, Physique…) : des onglets de couleur au-dessus des cours, « Global »
   pour tous ; une section choisie ne montre et ne fait réviser que ses cours. « + » ouvre une bulle sous la notch pour
   la nommer et choisir sa couleur (clic droit sur une section : la modifier ou la supprimer).
@@ -34,9 +41,23 @@ en haut au centre (sa poignée), elle s'ouvre (660 × 158) avec une barre d'ongl
   La fiche se lit comme un document soigné : chaque partie dans sa carte (numéro, titre, pages), les définitions en
   couleur, les pages citées en pastilles, « À retenir » et « À ne pas confondre » encadrés, un sommaire cliquable. De
   petits sons doux accompagnent les réponses (on les coupe d'un clic).
+  **Les formules sont dessinées comme dans un livre** : fractions sur leur barre, indices et exposants (C_A, V_B,E,
+  10⁻³), racines, sommes, flèches (⇔, →), parenthèses à la hauteur de ce qu'elles contiennent, chimie (H₂SO₄, SO₄²⁻).
+  Une formule avec une fraction ou une racine a sa propre ligne, sur une plaque discrète (réduite si elle est trop
+  large) ; une courte reste dans le texte. Pareil dans les cartes (question, réponse, choix du QCM) ; là où un dessin
+  ne tient pas (les pastilles des choix), la formule s'écrit en une ligne : « n(A)₀/a ». Notch écrit les formules en
+  LaTeX ; même une formule mal échappée par Gemini (« \frac » lu comme un saut de page) est réparée à l'affichage.
+  Le plan ne garde que les parties qui s'apprennent : ni page de titre, ni sommaire ou plan (ni les diapositives
+  « Plan » qui reviennent entre les chapitres), ni objectifs, ni bibliographie, ni « résumé du cours », ni les
+  informations pratiques (équipe enseignante, organisation, planning, évaluation, consignes d'examen, prérequis) ;
+  chaque partie une seule fois. Une introduction qui enseigne (rappels, vocabulaire) reste une vraie partie. **« Refaire la fiche »** (en haut de la fiche, deux clics) la fait réécrire
+  avec ces règles, les cartes restent ; si Notch échoue, l'ancienne fiche revient.
   Pendant la préparation, la mascotte lit le cours et trois étapes se remplissent (le plan ; la fiche, partie par
   partie ; les flashcards, une à une) : fiche et cartes s'écrivent en même temps, et les cartes se révisent dès
-  qu'elles sont là.
+  qu'elles sont là. Si Google est surchargé ou ne répond pas (rien en 90 s, ou bloqué une minute en pleine réponse),
+  Notch passe aussitôt à un autre modèle et le dit sous l'étape (« Google tarde à répondre : Notch essaie un autre
+  modèle… ») ; celui qui vient de répondre est demandé en premier les dix minutes suivantes. Après trois modèles muets,
+  Notch s'arrête et dit de réessayer dans quelques minutes, au lieu d'attendre indéfiniment.
 - **Pomodoro** : focus, pause, et une grande pause après une série ; le minuteur reste en haut de la notch fermée,
   la mascotte lit un livre pendant que vous vous concentrez et joue à la manette pendant la pause.
 - **Recherche** (`Ctrl + Q`, partout) : la notch devient une barre de recherche et les résultats en tombent comme une
@@ -83,14 +104,25 @@ Fonctionnalités :
 - **Paroles synchronisées**, affichées quand le morceau en a (bouton bulle au bout de la barre d'onglets pour
   les masquer ou les réafficher). Notch ouverte, colonne droite façon Apple Music : la ligne précédente et la
   suivante, plus petites et grisées, encadrent la ligne chantée ; chaque changement de ligne glisse sur le
-  compositeur. Notch fermée, la pilule s'élargit (380 px) pour la ligne chantée ; sans paroles, elle ne montre que la
-  pochette et la mascotte (ou le visualiseur), resserrée sur elles sans espace vide (pas de barre de progression : celle
-  de la notch ouverte suffit).
+  compositeur. Notch fermée, la pilule s'élargit (380 px) pour la ligne chantée, la pochette à gauche ; sans ligne
+  chantée sur la pilule (morceau sans paroles, ou paroles dans la barre des tâches, qui a déjà sa pochette), plus de
+  pochette : la pilule devient ronde autour de la mascotte qui danse (ou ne montre que le visualiseur), et la pochette
+  apparaît à l'ouverture (pas de barre de progression : celle de la notch ouverte suffit).
   Une ligne trop longue défile pendant qu'elle est chantée au lieu d'être tronquée. Source : LRCLIB, mise en
-  cache en mémoire. Au choix (Paramètres → Paroles), la ligne chantée va **dans la barre des tâches** plutôt que sur la
+  cache en mémoire. **Le bon morceau, la bonne version** : le titre est nettoyé de ce que les lecteurs ajoutent
+  (« (Official Video) », « - Remastered 2011 », « (feat. X) », « - Radio Edit »), un titre de vidéo est lu dans tous
+  les sens (« Artiste - Titre », « Titre | Artiste », « Artiste「Titre」 »), ses décorations retirées (« -「AMV」- Anime MV »,
+  « | Lyrics », « AMV - ») ; pour une vidéo (AMV, clip de paroles, lecture dans un navigateur), dont l'« artiste » n'est
+  souvent que la chaîne, le titre seul suffit s'il est identique, la durée à 3 s près, et qu'aucun autre artiste n'a
+  une chanson de ce nom (sinon rien : vingt chansons s'appellent « Someone Like You »). Plusieurs recherches partent en même temps,
+  et chaque résultat reçoit une note sur 100 : titre et artiste (accents, casse, ponctuation, fautes de frappe,
+  plusieurs artistes à part), durée (8 s d'écart au plus, sinon les paroles seraient décalées), album en bonus ; une
+  autre version (live, remix, acoustique…) est refusée. Rien plutôt que de fausses paroles. Quand le lecteur donne la
+  durée après le titre (souvent), la recherche est refaite avec elle. Seules des paroles synchronisées s'affichent : une
+  version qui ne tombe pas en rythme (une session live, une vidéo de 11 minutes autour du morceau) n'en a pas. Au choix (Paramètres → Paroles), la ligne chantée va **dans la barre des tâches** plutôt que sur la
   notch fermée : à droite, contre les icônes, la pochette à côté (l'icône de l'appli qui joue sur son coin), la ligne
   chantée qui s'éclaire au fil du chant et la suivante dessous ; claire ou sombre selon la barre, cachée quand une
-  application est en plein écran. Sa largeur se règle en tirant son bord gauche (ou dans les Paramètres). En option
+  application est en plein écran. Sa largeur se règle en tirant son bord gauche (ou dans les Paramètres). **Plusieurs écrans** : glissée (appuyer, déplacer, lâcher), elle suit la souris et va dans la barre des tâches de l'écran où on la lâche, contre l'horloge, et y reste (Ilot s'en souvient) ; un écran sans barre des tâches la renvoie d'où elle vient, un écran débranché la ramène sur l'écran principal en attendant. Un simple clic ouvre toujours la notch. En option
   (« Retirer le lecteur de la notch fermée »), la notch fermée laisse alors le morceau à la barre des tâches et garde
   son état neutre (la mascotte seule) ; en pause, « Se cacher au repos » décide ; un morceau sans paroles revient sur
   la notch.
@@ -150,13 +182,13 @@ Fonctionnalités :
   **Wi-Fi local** : échange direct avec un téléphone ou un autre PC sur le même Wi-Fi, par le routeur, sans
   Internet. Y déposer des fichiers (ou un dossier, zippé à la volée), coller (`Ctrl + V`) ou simplement cliquer ouvre le partage : un QR
   code remplace la liste des envois, avec à côté une adresse courte à taper sur un téléphone sans caméra :
-  `mynotch.local/4821`, et en dessous `ou 192.168.1.12/4821` pour les appareils qui ne résolvent pas les noms
+  `ilot.local/4821`, et en dessous `ou 192.168.1.12/4821` pour les appareils qui ne résolvent pas les noms
   `.local` (le code à 4 chiffres change à chaque partage ; après 10 codes faux d'affilée, plus aucun n'est accepté
   pendant une minute). Le nom est publié en mDNS pendant le partage par un petit répondeur maison
   (`Local/MdnsResponder.cs`, RFC 6762, sans bibliothèque) : il demande d'abord au réseau si le nom est libre
-  (sinon `mynotch-2.local`…), l'annonce, puis le retire à l'arrêt. iPhone, Mac, Windows, Linux et Android récents
+  (sinon `ilot-2.local`…), l'annonce, puis le retire à l'arrêt. iPhone, Mac, Windows, Linux et Android récents
   le résolvent ; le QR code, lui, garde l'adresse IP, qui marche partout.
-  **Chat et collage en direct** : le bouton **Chat** ouvre sous la notch une bulle redimensionnable (`NotchContext.ShowBubble`) synchronisée en temps réel avec la page `mynotch.local` (attente longue HTTP, 0 % de CPU au repos). Dans les deux sens, on peut envoyer un message ou un lien (détecté automatiquement, cliquable et copiable en un clic), **coller directement (`Ctrl + V` ou bouton « Coller »)** une capture d'écran, une image, du texte, un lien ou des fichiers copiés dans l'Explorateur, ou glisser-déposer des fichiers sur la bulle ou la page. Les textes, liens et images collées arrivent directement dans le fil (aperçu de l'image, copier dans le presse-papier ou enregistrer dans `Images\Ilot`).
+  **Chat et collage en direct** : le bouton **Chat** ouvre sous la notch une bulle redimensionnable (`NotchContext.ShowBubble`) synchronisée en temps réel avec la page `ilot.local` (attente longue HTTP, 0 % de CPU au repos). Dans les deux sens, on peut envoyer un message ou un lien (détecté automatiquement, cliquable et copiable en un clic), **coller directement (`Ctrl + V` ou bouton « Coller »)** une capture d'écran, une image, du texte, un lien ou des fichiers copiés dans l'Explorateur, ou glisser-déposer des fichiers sur la bulle ou la page. Les textes, liens et images collées arrivent directement dans le fil (aperçu de l'image, copier dans le presse-papier ou enregistrer dans `Images\Ilot`). Le champ du PC garde **toutes les lignes** d'un texte collé et grandit avec lui (six lignes, puis il défile) : Entrée envoie, Maj + Entrée va à la ligne ; un long message se lit en entier dans la bulle, et on peut en sélectionner un passage. Le partage reste ouvert tant qu'un téléphone a la page du chat ouverte (deux heures au plus sans un message), au lieu de s'arrêter après dix minutes sans échange ; si on écrit sur le PC alors qu'il s'est arrêté, il redémarre (nouveau code) au lieu d'ignorer le message. La page du téléphone prévient quand le PC ne répond plus.
   Pour les fichiers envoyés vers le PC (`Téléchargements`), un fichier reçu attend votre accord, caché : la notch fermée descend une carte
   façon appel entrant (« IMG_2034.jpg · 3,2 Mo · depuis le téléphone », **Refuser** en rouge, **Accepter** en vert ;
   plusieurs fichiers en attente se décident ensemble), et la bulle de chat affiche aussi les boutons **Accepter / Refuser** sur le message. Le survol ne l'ouvre pas, pour cliquer tranquille ; si la
@@ -211,13 +243,16 @@ Fonctionnalités :
   note à l'autre. La feuille : le titre, « Copier » (avec la mise en forme, pour Word, et en
   texte), « Supprimer » (un second clic confirme), « Fermer » ; une barre d'outils façon Word : Texte / Titre /
   Titre 2 / Titre 3, la taille en points (8 à 72, par crans comme Word), gras, italique, souligné, barré, liste à
-  puces, liste numérotée, liste de tâches (un clic sur la case la coche en vert et barre la ligne), annuler /
+  puces, liste numérotée, liste de tâches (un clic sur la case la coche en ambre et barre la ligne), annuler /
   rétablir ; elle montre la mise en forme sous le curseur. Les habitudes Markdown marchent aussi en début de ligne :
   « - », « 1. », « [] », « # », « ## », « ### » puis espace. Entrée continue une liste (un élément vide la termine),
   Retour arrière juste après une case l'enlève, Ctrl + Entrée coche, Ctrl + B / I / U. Le collé est du texte seul,
-  dans la mise en forme où il arrive. En bas, mots et caractères, et « Enregistré ». Cliquer dans la note prend le
+  dans la mise en forme où il arrive. La couleur des cases (gris, ambre) reste sur les cases : le texte tapé ou collé à
+  côté garde la couleur du texte, le curseur ne se place jamais avant une case (il va dans son texte ; ← au début du
+  texte remonte à la ligne d'avant), et une note dont du texte était devenu jaune est réparée à l'ouverture. En bas, mots et caractères, et « Enregistré ». Cliquer dans la note prend le
   clavier et garde la notch ouverte ; Échap ou un clic ailleurs le rend. Quitter l'onglet, ou la notch qui se
-  referme, range la feuille (la note est enregistrée). Base SQLite `%LOCALAPPDATA%\Ilot\notes.db` (table
+  referme, range la feuille (la note est enregistrée) ; au retour sur l'onglet, la même note se rouvre, le curseur
+  là où il était, jusqu'à ce que vous la fermiez vous-même (une note vide n'est pas gardée). Base SQLite `%LOCALAPPDATA%\Ilot\notes.db` (table
   `Notes` : id, title, content en RTF, plain pour les cartes et la recherche, created_at, updated_at) par le
   `winsqlite3.dll` de Windows : lue au premier affichage de l'onglet seulement, écrite peu après la dernière frappe
   hors du thread UI, et une dernière fois à la fermeture. Les notes écrites en Markdown avant sont converties en mise
@@ -226,6 +261,12 @@ Fonctionnalités :
   recherche (660 × 60, sans onglets ; la loupe pivote et grandit en place) et prend le clavier. Dès la première
   lettre, une bulle de résultats tombe de la barre comme une goutte (le même effet que la feuille des notes), puis
   s'étire ou se resserre sur un ressort quand le nombre de résultats change ; vidée, elle remonte dans la notch.
+  Elle montre autant de lignes que le réglage (8 par défaut) ; la liste en garde jusqu'à 50, qui défilent à la
+  molette, aux flèches ou avec `Page ↑` / `Page ↓`. Chaque lettre tapée repart du meilleur résultat, en haut de la
+  liste ; une ligne choisie à la main reste choisie tant que la recherche ne change pas (quand les fichiers arrivent
+  juste après, par exemple). La ligne choisie au clavier reste toujours en vue (la suivante
+  dépasse un peu), les lignes fondent dans le noir au bord où il en reste, et une fine barre à droite montre où l'on
+  est dans la liste (tout est animé par le compositeur).
   Les lignes qui changent glissent et s'éclairent l'une après l'autre ; la ligne choisie est soulignée par un
   surlignage qui glisse de ligne en ligne. Chaque ligne : l'icône de Windows (applis, types de fichiers, dossiers) ou
   un glyphe sur une tuile colorée, le nom avec ce qui correspond en blanc, l'emplacement, le type, et `↵` sur la
@@ -237,7 +278,7 @@ Fonctionnalités :
     par mots-clés : « wifi », « fond d'écran »…) ; **Commandes** : verrouiller, veille, redémarrer, arrêter, se
     déconnecter, vider la corbeille (les quatre dernières demandent une seconde Entrée) ;
   - **Calculs** : `18*1,2`, `= 2^10`, `(3+4)²`, `200 * 15%`, `√16`, `pi*2` (Entrée copie le résultat) ;
-  - une **recherche sur le web** en dernière ligne.
+  - une **recherche sur le web** en dernière ligne (`↑` depuis la première y mène directement).
 
   La correspondance ignore majuscules et accents (« parametres » trouve « Paramètres ») et lit les initiales (« vsc » :
   Visual Studio Code). Le classement tient compte de la qualité de la correspondance (début du nom, début d'un mot,
@@ -245,7 +286,7 @@ Fonctionnalités :
   (`%LOCALAPPDATA%\Ilot\search.json`, et le compteur d'Everything), et pour les fichiers de leur emplacement
   (Bureau, Documents, Téléchargements… avant les dossiers profonds ou cachés) et de leur fraîcheur. Les sources
   locales répondent tout de suite ; la liste attend Everything 90 ms au plus pour ne pas sauter.
-  Clavier : `↑` `↓` pour choisir, `Entrée` pour ouvrir, `Ctrl + Entrée` pour montrer dans son dossier,
+  Clavier : `↑` `↓` pour choisir, `Page ↑` `Page ↓` pour sauter d'un écran, `Entrée` pour ouvrir, `Ctrl + Entrée` pour montrer dans son dossier,
   `Maj + Entrée` pour lancer en administrateur, `Ctrl + C` pour copier le chemin, `Échap` pour effacer puis
   fermer. La souris marche aussi (survol, clic). Clic droit sur un résultat : le menu de l'Explorateur, au style de la
   notch (ouvrir, ouvrir avec…, en administrateur, l'emplacement, copier le fichier, copier le chemin, supprimer vers
@@ -253,7 +294,7 @@ Fonctionnalités :
   les entrées des applis comme 7-Zip ou VS Code…), comme dans Windows 11. Ce qui s'ouvre garde le clavier ; Échap le
   rend à l'appli d'avant.
   Réglages : écran où elle s'ouvre (curseur, fenêtre active ou principal), garder la dernière recherche (oui par
-  défaut : fermée sans rien ouvrir, elle revient sélectionnée, avec ses résultats ; après une ouverture, la barre repart vide), sources à cocher, nombre de résultats (4 à 12), dossiers ignorés (par défaut `C:\Windows\`,
+  défaut : fermée sans rien ouvrir, elle revient sélectionnée, avec ses résultats ; après une ouverture, la barre repart vide), sources à cocher, résultats affichés à la fois (4 à 12, les suivants défilent), dossiers ignorés (par défaut `C:\Windows\`,
   `\AppData\`, `\WindowsApps\`, `\node_modules\`, `\.git\`, `\obj\`…).
 - **Boosté par Everything** : les fichiers sont trouvés par [Everything](https://www.voidtools.com) (voidtools,
   licence MIT, crédité en bas de la bulle et dans les paramètres). La notch en emporte une copie portable
@@ -262,7 +303,11 @@ Fonctionnalités :
   en quittant. Un Everything que vous lancez vous-même est utilisé tel quel. À pleine vitesse (les disques entiers,
   lus dans leur table de fichiers), Everything a besoin de son service : s'il est installé, la copie s'en sert ; sinon
   « Pleine vitesse » dans les paramètres l'installe (une autorisation de Windows, une seule fois), et en attendant elle
-  indexe votre dossier personnel.
+  indexe votre dossier personnel. **Un index léger** : les « Dossiers ignorés » de la recherche (Paramètres →
+  Recherche : `C:\Windows\`, `\AppData\`, `\node_modules\`, `\.git\`, `\obj\`…), jamais montrés dans les résultats,
+  ne sont plus indexés du tout ; c'étaient l'essentiel de l'index (mesuré : environ 2,5 millions d'entrées sur 3,3).
+  La liste changée, la copie d'Everything repart avec elle quelques secondes après. Elle ne garde prêt que le tri par
+  date (le seul que la notch demande). Rien de perdu : ce qui disparaît de l'index n'apparaissait déjà pas.
 - **Volume** : la molette de la souris sur l'onglet Média règle le volume du système par pas
   de 5 % (notch ouverte, la bulle de volume à gauche le montre et le règle aussi).
   Quand le volume du système change, de n'importe où (les touches du clavier, la barre des tâches, une appli, la
@@ -275,12 +320,24 @@ Fonctionnalités :
   répond avec sa voix, presque aussitôt, et vous pouvez lui couper la parole. Elle vous écoute en hochant la tête,
   réfléchit (la lueur des bords s'allume), puis parle : un petit « o » s'ouvre doucement avec sa voix, ses yeux
   sourient, elle sautille sur les syllabes fortes. Ce que chacun dit s'écrit dans la conversation, qui continue ensuite à l'écrit (et
-  la voix connaît ce qui a été écrit avant). La notch peut se fermer : la conversation continue, la pilule reste, la
-  mascotte y garde sa forme d'orbe et réagit aux deux voix, pour montrer qu'elle vous entend. Elle s'arrête par
-  « Arrêter » (ou la mascotte) ou Échap ; le micro n'est ouvert que pendant ce temps. L'un ou l'autre : pendant qu'on se
+  la voix connaît ce qui a été écrit avant). La notch peut se fermer : la conversation continue, la pilule reste (ronde,
+  juste l'orbe, sauf si la musique y affiche ses paroles), la mascotte y garde sa forme d'orbe et réagit aux deux voix,
+  pour montrer qu'elle vous entend. Pendant qu'elle réfléchit ou parle, **« Interrompre »** (le bouton carré sous la mascotte) ou Échap
+  la coupe net : sa voix s'arrête aussitôt, la suite de sa réponse est ignorée, une action en cours ou en attente est
+  annulée, ce qu'elle avait déjà dit reste écrit (marqué « Interrompu »), et elle vous écoute à nouveau. La
+  conversation vocale elle-même s'arrête par « Arrêter » (ou la mascotte), ou Échap quand elle écoute ; le micro
+  n'est ouvert que pendant ce temps. **Couper le micro sans arrêter la conversation** (quelqu'un vous parle pendant
+  qu'elle réfléchit ou fait une tâche) : le bouton micro sous la mascotte (un clic coupe, un clic rétablit), la touche M, ou **Ctrl + Alt + M de
+  n'importe où**, notch fermée (ce raccourci n'existe que pendant une conversation à voix haute ; dans un jeu en
+  plein écran, il laisse passer la touche). Le micro est alors vraiment fermé (Windows le montre inutilisé),
+  Google est prévenu que le son s'arrête : ce qui a été dit est pris comme une question finie, la tâche continue
+  et la réponse vient à voix haute. Le même geste le rétablit. « Micro coupé » / « Micro rétabli » s'affichent
+  sur la notch fermée, et le bouton micro, barré, devient rouge. Sous la mascotte, pendant la voix, trois gros boutons ronds comme un appel : micro, raccrocher (rouge), interrompre. L'un ou l'autre : pendant qu'on se
   parle, la question écrite est désactivée. Le volume de sa voix se règle pendant la conversation (un curseur dans la
   barre, ou la molette sur la mascotte) et dans les paramètres ; il est retenu. L'écho des haut-parleurs est retiré
-  par Windows quand le micro le permet. Avant la première question, la mascotte de la goutte est plus grande ; elle
+  par Windows quand le micro le permet. À la voix, Notch parle toujours la langue de l'appli (le français, ou l'anglais
+  si l'interface est en anglais), même s'il croit entendre une autre langue ; il n'en change que si vous le lui
+  demandez. Avant la première question, la mascotte de la goutte est plus grande ; elle
   reprend sa taille quand la conversation commence.
 - **L'assistant (la mascotte qui parle)** : un clic sur la mascotte (ou Ctrl + Maj + Espace, modifiable) ouvre une
   barre pour lui poser une question (sa petite notch, à droite, garde une flèche « Retour aux onglets » pour revenir
@@ -298,13 +355,113 @@ Fonctionnalités :
   l'intérieur : une lueur douce, vive au bord et qui s'estompe vers le dedans, de la couleur de la mascotte, dont la
   partie la plus claire fait lentement le tour. Ces animations ne tournent que pendant l'assistant. Mise
   en forme simple (gras, listes, `code`, blocs de code), un bouton pour copier chaque réponse, « Nouvelle
-  conversation » pour repartir de zéro ; Entrée envoie, Échap ferme. « Historique » montre les conversations passées (écrites ou à voix
+  conversation » pour repartir de zéro ; Entrée envoie, Échap ferme. Pendant qu'elle réfléchit ou écrit,
+  **« Interrompre »** (le bouton carré sous la mascotte, à côté de « Parler ») ou Échap arrête la réponse : ce qui est déjà écrit reste
+  (marqué « Interrompu »), une action en attente de votre accord ou en cours est annulée, et la question suivante
+  repart de là. « Historique » montre les conversations passées (écrites ou à voix
   haute, les 100 dernières, gardées sur ce PC dans `%LOCALAPPDATA%Ilotassistant-history.json`, sans les images) :
   un clic en rouvre une pour la continuer, la corbeille en oublie une, « Tout effacer » toutes. Dans la goutte, la
   lueur de la mascotte s'étend doucement, et une petite boule de lumière de sa couleur se promène en bas à gauche. Paramètres → Assistant : la clé API (vérifiée auprès de Google, gardée par le Gestionnaire
   d'identification de Windows, jamais en clair ; un guide pas à pas pour l'obtenir, ouvert tant qu'il n'y en a pas :
   « Ouvrir » Google AI Studio, puis « Coller et enregistrer » une fois la clé copiée), le modèle (« Automatique » : le plus rapide de ceux que la clé
-  peut utiliser, ou un autre de la liste lue chez Google), le raccourci.
+  peut utiliser, ou un autre de la liste lue chez Google), « Laisser Notch agir sur le PC » (oui par défaut), « Lancer
+  les commandes sans demander » (non par défaut), le raccourci.
+- **Capture d'écran** : le bouton appareil photo de la barre (ou Ctrl + Maj + S) joint l'écran à la question, comme
+  une image collée (jusqu'à 1 600 px de côté, PNG, ou JPEG au-delà de 2,5 Mo). C'est l'écran où se trouve la notch,
+  sans la notch elle-même (Windows la retire de la capture le temps de la prendre seulement : vos propres captures
+  et partages d'écran la montrent toujours). Les autres fenêtres d'Ilot (une note, un cours) y figurent comme les
+  autres.
+- **Notch agit sur le PC** (conversation écrite, quand vous le lui demandez) : Gemini peut appeler ses outils, Ilot les
+  exécute sur le PC et lui rend le résultat, puis il répond. Chaque action s'affiche dans la conversation, avant la
+  réponse (son icône, ce qu'elle fait, comment ça s'est passé) :
+  - **voir l'écran** (« regarde mon écran ») : la même capture, montrée sous l'action ;
+  - **chercher des fichiers** par Everything, avec les mêmes dossiers ignorés que Ctrl + Q (20 au plus) ;
+  - **lire ou écrire le presse-papier** (le texte ; une copie privée, d'un gestionnaire de mots de passe, n'est jamais lue) ;
+  - **ouvrir** un dossier, un document, une appli du menu Démarrer par son nom, une page des paramètres Windows ou un
+    projet dans VS Code, aussitôt (« ouvre mes Téléchargements » : votre vrai dossier, où que Windows le range ; jamais celui d'un autre ni le dossier Public) ; **une page web, un programme ou un script attendent votre accord** (l'adresse
+    exacte ou le chemin s'affiche, avec « Autoriser » et « Refuser ») ;
+  - à chaque demande d'accord : « Autoriser » (cette fois), **« Toujours autoriser »** (Notch ne demande plus : pour
+    tout le site d'une page web, pour ce fichier-là, ou pour ce programme de commande) ou « Refuser ». Ce qui est
+    toujours autorisé se retrouve dans Paramètres → Assistant → « Toujours autorisé », chaque ligne avec une croix
+    pour le retirer ;
+  - **une commande de diagnostic**, après votre accord (la commande exacte affichée), ou tout de suite avec
+    « Lancer les commandes sans demander » (Paramètres → Assistant ; les pages web et les programmes demandent
+    toujours). Seules des
+    commandes qui ne font que lire sont possibles : `ipconfig`, `ping` (10 au plus), `nslookup`, `hostname`, `whoami`,
+    `systeminfo`, `tasklist`, `getmac`, `driverquery`, `netstat`, `where`, `git` en lecture (status, log, diff, show,
+    branch, remote, tag…), les versions de `dotnet`, `node`, `python`, `java`, et `winget list` / `search` / `show`.
+    Aucun interpréteur de commandes : pas de tube, de redirection ni de seconde commande. Le programme est pris dans
+    System32 ou le PATH (jamais dans le dossier courant), arrêté au bout de 20 s. **Son résultat s'affiche sous la
+    commande**, comme dans un terminal (colonnes alignées, défilement si c'est long, bouton pour le copier) ; Gemini
+    n'en lit que les 6 000 premiers caractères et vous dit l'essentiel plutôt que de tout recopier ;
+  - **créer un dossier** (« crée un dossier Factures 2026 dans mes Documents ») **ou un fichier texte** (.txt, .md
+    ou .csv, avec le texte demandé : une liste, des notes), **après votre accord** : le chemin complet s'affiche (et
+    le début du texte pour un fichier) ; « Toujours autoriser » vaut pour toutes les créations. Créer seulement : rien n'est jamais
+    supprimé, déplacé ni remplacé (un dossier déjà là est laissé tel quel, un fichier déjà là n'est pas touché). Dans
+    vos dossiers (Bureau, Documents, Téléchargements, Images, Musique, Vidéos, ou tout votre dossier personnel, sauf
+    son AppData caché) ou n'importe où sur un autre disque de ce PC ; jamais dans Windows, Program Files,
+    ProgramData, ailleurs sur le disque de Windows, ni sur le réseau (un lien vers ces endroits est refusé aussi).
+    Une fois créé, « Ouvrir » à côté de l'action l'ouvre (le dossier dans l'Explorateur, le fichier dans son appli) ;
+  - **copier, déplacer ou renommer un fichier ou un dossier** (« copie le dossier Projet sur le Bureau », « range
+    facture.pdf dans Documents\Factures », « renomme Projet en Projet 2025 »), **après votre accord** (d'où et vers
+    où, en entier) ; « Toujours autoriser » vaut pour toutes les copies, ou pour tous les déplacements et renommages.
+    Rien n'est jamais remplacé : si le nom existe déjà à
+    l'arrivée, Notch le dit et propose un autre nom. L'arrivée suit les mêmes règles que la création (vos dossiers ou
+    un autre disque) ; une copie peut partir de n'importe où sur le PC, un déplacement seulement de vos dossiers ou
+    d'un autre disque, et jamais vos dossiers eux-mêmes (Bureau, Documents, Téléchargements… : seulement ce qu'ils
+    contiennent). La place libre est vérifiée avant de copier ; une copie qui échoue ou que vous interrompez est
+    retirée (rien de ce qui était là n'est touché). Les liens (jonctions) à l'intérieur d'un dossier ne sont pas
+    suivis. Sur le même disque, un déplacement est un simple renommage, instantané ; vers un autre disque, le dossier
+    est copié, vérifié (même nombre de fichiers, même taille), puis l'original retiré. À la fin : le nombre de
+    fichiers, la taille, et « Ouvrir » ;
+  - **ce qu'il ouvre passe au premier plan** : un dossier, un fichier, une appli, une page web, un projet VS Code
+    ou les paramètres Windows s'ouvrent devant, même notch fermée pendant une conversation à voix haute (Windows
+    les laisserait sinon derrière, Ilot n'étant pas l'appli active). Notch attend la fenêtre qui s'ouvre (quelques
+    secondes au plus) et la met devant comme un clic dessus ; une appli déjà ouverte qu'il réveille aussi, et pour
+    une page web, la fenêtre du navigateur où elle s'ouvre en onglet. Aucune touche n'est simulée ;
+  - **remettre une fenêtre déjà ouverte au premier plan** (« mets VS Code devant », « affiche Spotify ») : restaurée
+    si elle était réduite, sans demander (rien d'autre ne change) ;
+  - **fermer des fenêtres** (« ferme tous les explorateurs de fichiers », « ferme le VS Code de mynotch ») : Notch
+    liste d'abord les fenêtres ouvertes (titre, appli) pour trouver les bonnes, puis les ferme **comme leur croix** :
+    l'appli peut demander d'enregistrer, rien n'est forcé, aucun programme n'est tué. Après votre accord (la liste
+    des fenêtres s'affiche ; « Toujours autoriser » vaut pour toutes les fermetures). Celles restées ouvertes (une
+    question d'enregistrement, ou une appli lancée en administrateur) sont dites, par leur nom. Jamais les fenêtres
+    d'Ilot, ni le bureau, la barre des tâches, le menu Démarrer ou l'écran de verrouillage ; de l'Explorateur,
+    seulement ses fenêtres de dossiers ;
+  - **supprimer un fichier ou un dossier** (« supprime le fichier brouillon.txt du Bureau »), seulement quand vous le
+    demandez clairement, et **toujours après votre accord, à chaque fois** : jamais de « Toujours autoriser » pour une
+    suppression, même si tout le reste l'est, même avec « Lancer les commandes sans demander ». Le chemin s'affiche,
+    avec ce qui va se passer. Tout va **à la Corbeille** (récupérable de là) ; sur un disque sans Corbeille (clé USB,
+    réseau), Notch refuse ; si c'est trop gros pour la Corbeille, Windows vous demande avant de le détruire. Mêmes
+    limites qu'un déplacement : vos dossiers ou un autre disque, jamais vos dossiers eux-mêmes (Bureau,
+    Documents… : seulement ce qu'ils contiennent), jamais Windows ni les programmes ;
+  - **notch fermée, une coche pour ce qui est fait** : quand Notch a fini une action et que la notch est repliée
+    (pendant une conversation à voix haute, par exemple), la pilule sort un instant avec une coche verte et ce qui
+    a été fait : « Dossier copié », « Fichier déplacé », « Renommé », « Fichier supprimé », « Dossier créé »,
+    « Ouvert : Documents », « 3 fenêtres fermées », « Copié dans le presse-papier », « Commande terminée ». Un retour
+    en arrière s'y annonce aussi. Notch ouverte, rien ne s'y affiche : la conversation le montre ;
+  - **tout est tracé, et se défait** : chaque création, copie, déplacement, renommage ou suppression s'inscrit dans un journal
+    (Paramètres → Assistant → « Ce que Notch a fait sur vos fichiers », les 200 derniers, gardés dans
+    `%LOCALAPPDATA%\Ilot\assistant-files.json`). **« Revenir en arrière »** (à côté de l'action dans la conversation,
+    dans ce journal, ou **Ctrl + Z** dans la barre quand rien n'y est tapé, pour le dernier depuis le lancement)
+    remet un déplacement à sa place, ou met ce qu'il a créé ou copié **à la Corbeille** (récupérable de là). Rien
+    n'est jamais remplacé en revenant en arrière ; si ce n'est plus possible (déplacé depuis, place reprise), Notch dit
+    pourquoi. Une suppression ne se défait pas d'ici : elle est dans la Corbeille, d'où vous la restaurez.
+
+  Rien ne passe par un autre serveur : comme le reste de la conversation, seul Gemini reçoit ce que les outils
+  rendent. Un modèle qui n'accepte pas les outils répond sans eux. Au plus huit tours d'outils par question, puis
+  Gemini doit répondre.
+  **À la voix aussi** : les mêmes outils, demandés à voix haute (« ouvre la calculatrice », « regarde mon écran »,
+  « quelle est mon adresse IP ? »). Chaque action s'inscrit dans la conversation à sa place, entre ce que Notch a dit
+  avant et après. L'écran lui est envoyé comme une image. Le bouton appareil photo (ou Ctrl + Maj + S) le lui montre
+  aussi pendant que vous parlez ; demandez-lui ensuite ce qu'il voit. À la voix, il ne regarde l'écran qu'une fois par demande (il ne peut pas prendre des captures en boucle) ; il pourra regarder de nouveau quand vous reparlerez. Si une action attend votre accord alors que la
+  notch est fermée, la barre s'ouvre pour vous la montrer, sans prendre le clavier de l'appli où vous êtes, et reste
+  ouverte jusqu'à votre réponse ; **« Autorisation demandée »** reste aussi affiché sur la notch tant qu'elle attend,
+  et Notch vous dit de cliquer sur « Autoriser ». De même quand une commande a un résultat à lire (« liste-moi les
+  ports ouverts »). Une action qui n'a pas pu se faire (fichier introuvable, endroit refusé…) s'annonce en rouge sur
+  la notch fermée (« Pas fait : … »), et Notch dit pourquoi ; donné seulement le nom d'un fichier, il le cherche
+  d'abord pour trouver où il est. Une action que vous interrompez en parlant par-dessus est
+  annulée. Un modèle vocal qui refuse les outils est rappelé sans eux : la voix marche toujours.
 - **Les paramètres** (clic droit sur la notch → Paramètres) : une barre d'onglets à gauche, une section à la fois :
   Général, Poignée, Recherche, Paroles, Presse-papier, Drop Zone, Assistant.
 - **Volume et luminosité, à gauche** : notch ouverte, deux petites bulles sortent de son bout gauche, comme la
@@ -320,7 +477,7 @@ Fonctionnalités :
   Un clic droit sur le volume ouvre dessous un **mélangeur de volume** : chaque application qui fait du son (et les
   sons système), son icône (un clic coupe ou rétablit son son), son nom, un curseur fin de la couleur de la mascotte
   (glisser, cliquer, molette) et son pourcentage. Un nouveau clic droit le ferme, il se ferme aussi avec la notch.
-  En bas, le **booster** : son interrupteur allumé, les curseurs des applis vont jusqu'à **200 %** (un repère à 100 %,
+  En bas, le **booster** : son interrupteur allumé, les curseurs des applis vont jusqu'à **300 %** (un repère à 100 %,
   légèrement aimanté ; le pourcentage d'une appli boostée prend la couleur de la mascotte). Rien à installer : Windows
   baisse l'appli à 0,1 % et Ilot rejoue son son, intact, aussi fort que demandé (un limiteur évite la saturation, environ
   75 ms de décalage : à éviter sur un jeu en compétition). Une appli à 100 % ou moins reste au son de Windows, sans
@@ -360,11 +517,20 @@ Fonctionnalités :
   Pomodoro, nid de la mascotte : la mascotte devient la ligne de la poignée, à sa couleur). La survoler l'ouvre comme
   d'habitude ; les annonces, les cartes et les questions passent quand même le temps qu'il faut. Clic droit sur la notch
   → « Mode minimisé », ou Paramètres → Général (`AppSettings.Minimized`).
-- **Double-clic** : verrouille la notch ouverte (petit indicateur en bas). Un second double-clic la referme.
+- **Garder ouverte** (clic droit → « Garder ouverte ») : verrouille la notch ouverte (petit indicateur en bas) ; le
+  même choix la libère. Le double-clic ne fait plus rien (il épinglait la notch par accident).
 - **Un clic suffit à la garder** : ouverte au survol, elle se referme quand la souris s'en va ; dès qu'on clique dedans
   (un onglet, un bouton, sa bulle, ou le clic qui l'ouvre), elle reste ouverte jusqu'à un clic ailleurs, sans prendre
   le clavier à l'application en cours. Désactivable : Paramètres → Général, « Rester ouverte après un clic ».
-- **Clic droit** : menu « Garder ouverte » / « Mode minimisé » / « Paramètres… » / « Quitter Ilot ».
+- **Clic droit** : menu « Garder ouverte » / « Mode minimisé » / « Paroles dans la barre des tâches » / « Paramètres… »
+  / « Quitter Ilot ». « Paroles dans la barre des tâches » se coche ou se décoche directement : la ligne chantée passe
+  dans la barre des tâches ou revient sur la notch (cocher rallume les paroles si elles étaient coupées) ; les Paramètres
+  suivent, même ouverts.
+- **Plein écran** (« Masquer en plein écran ») : la notch se retire devant un jeu, une vidéo ou une présentation en
+  plein écran sur son écran, y compris un jeu en plein écran exclusif, et reste retirée si l'on travaille sur un autre
+  écran pendant ce temps. Une fenêtre simplement agrandie ne la cache jamais (même Discord, Spotify ou VS Code, qui
+  dessinent leur propre barre de titre). Elle reste au-dessus des fenêtres « toujours au premier plan » qui passent
+  devant, et y revient en réapparaissant.
 - **Au repos, une poignée** : sans rien à afficher (pas de musique ouverte : la pilule serait vide), la notch n'est que
   sa poignée (la petite languette avec sa ligne claire), tout de suite. Avec un morceau en pause (ou rien qui se passe),
   elle se réduit à sa poignée (ou au nid de la mascotte) au bout de 5 secondes (réglable de 5 secondes à 2 minutes, ou désactivable : « Se cacher au repos »), et dès le démarrage. La survoler la fait
@@ -389,7 +555,7 @@ Fonctionnalités :
   `%LOCALAPPDATA%\Ilot\settings.json`.
 - **Français ou anglais** : Paramètres → Général → Langue (« Celle de Windows » par défaut : anglais si Windows n'est
   pas en français). La notch la prend au lancement suivant. Tout est traduit : la notch, ses modules, les paramètres,
-  les dates et nombres (« 2.5 GB », « 3 min ago »), et la page du téléphone (`mynotch.local`).
+  les dates et nombres (« 2.5 GB », « 3 min ago »), et la page du téléphone (`ilot.local`).
 - **Clic à travers** : hors de la notch, les clics atteignent les fenêtres situées dessous. Cliquer la notch ne
   vole jamais le focus de l'application en cours.
 - **Erreurs** : ce qui plante est noté dans `%LOCALAPPDATA%\Ilot\errors.log` (256 Ko au plus). Si la notch ne peut pas
@@ -485,8 +651,9 @@ src/Ilot/
 │   └── Editor/                RichNoteEditor (RichEditBox façon Word : styles, tailles, listes, cases à cocher),
 │                              MarkdownImport + MarkdownSyntax (anciennes notes en Markdown)
 ├── Modules/Assistant/         L'assistant (Gemini) : AssistantView (la barre), AssistantPanel (la conversation dans la
-│                              goutte), AssistantConversation, GeminiClient (flux SSE, modèles), ApiKeyStore
-│                              (Gestionnaire d'identification), MarkdownLite, AssistantShortcut
+│                              goutte), AssistantConversation, GeminiClient (flux SSE, modèles, outils), ApiKeyStore
+│                              (Gestionnaire d'identification), MarkdownLite, AssistantShortcut, AssistantTools (ce
+│                              que Notch peut faire sur le PC), ShellCommands (la liste blanche), ScreenCaptureService
 ├── Modules/Search/            La recherche (Ctrl + Q), sans onglet
 │   ├── SearchShortcut.cs      Ctrl + Q : hook clavier, comme le raccourci du presse-papier
 │   ├── SearchViewModel.cs     Les sources interrogées ensemble, le classement, l'ouverture (dossier, admin, chemin)

@@ -50,6 +50,12 @@ public readonly record struct NoteFormat(bool Bold, bool Italic, bool Underline,
 /// Markdown habits work too: "- " or "* " starts a list, "1. " a numbered one, "[] " a check list, "# ", "## " and
 /// "### " a title. Pasting takes the text only (no fonts and colours from elsewhere); copying keeps the formatting.
 /// </para>
+/// <para>
+/// A box's look (its icon font, its grey or amber) stays on the box. RichEdit gives new text the format of the character
+/// before it: text typed or pasted next to a box came out amber or grey. The caret never stands before a box nor
+/// between it and its space, what gets typed takes the text's look (<see cref="KeepOffBox"/>), and any text that took the
+/// box's look all the same is given back the text's (<see cref="Mend"/>: on opening a note, after a paste, after typing).
+/// </para>
 /// </remarks>
 public sealed partial class RichNoteEditor : RichEditBox
 {
@@ -75,6 +81,11 @@ public sealed partial class RichNoteEditor : RichEditBox
     private static readonly Color TickedInk = Color.FromArgb(255, 0xFF, 0xC8, 0x57); // The amber of the open card.
 
     private int _loading;
+    private int _changing;
+    private bool _placing;
+    private bool _mendQueued;
+    private int _caret = -1;
+    private bool _leftward; // The last key was ←: leaving an item by its start goes to the line before.
     private Canvas? _layer;
     private BoxButton? _boxButton;
     private int _hotBox = -1;
@@ -92,9 +103,14 @@ public sealed partial class RichNoteEditor : RichEditBox
             if (_loading == 0)
             {
                 Edited?.Invoke(this, EventArgs.Empty);
+                QueueMend();
             }
         };
-        SelectionChanged += (_, _) => FormatChanged?.Invoke(this, EventArgs.Empty);
+        SelectionChanged += (_, _) =>
+        {
+            KeepOffBox();
+            FormatChanged?.Invoke(this, EventArgs.Empty);
+        };
         Paste += OnPaste;
         PreviewKeyDown += OnPreviewKeyDown;
         AddHandler(PointerPressedEvent, new PointerEventHandler(OnPointerPressed), handledEventsToo: true);
@@ -168,6 +184,8 @@ public sealed partial class RichNoteEditor : RichEditBox
                 MarkdownImport.Into(this, content);
             }
 
+            Document.GetText(TextGetOptions.None, out string loaded);
+            Mend(0, loaded.Length);
             Document.ClearUndoRedoHistory();
             Document.Selection.SetRange(0, 0);
             ResetTyping();
@@ -349,9 +367,10 @@ public sealed partial class RichNoteEditor : RichEditBox
     {
         Document.GetRange(start, start).SetText(TextSetOptions.None, $"{Box}{Gap}");
         StyleBox(start);
-        var gap = Document.GetRange(start + 1, start + 2).CharacterFormat.GetClone();
-        gap.Strikethrough = FormatEffect.Off;
-        Document.GetRange(start + 1, start + 2).CharacterFormat = gap;
+        var gap = Document.GetRange(start + 1, start + 2);
+        var look = TextLook(gap.CharacterFormat);
+        look.Strikethrough = FormatEffect.Off;
+        gap.CharacterFormat = look;
         Indent(start, CheckIndent);
     }
 
@@ -419,6 +438,7 @@ public sealed partial class RichNoteEditor : RichEditBox
 
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        _leftward = e.Key == VirtualKey.Left;
         bool control = IsDown(VirtualKey.Control);
         bool shift = IsDown(VirtualKey.Shift);
         bool alt = IsDown(VirtualKey.Menu);
@@ -505,7 +525,7 @@ public sealed partial class RichNoteEditor : RichEditBox
             int start = Document.Selection.StartPosition;
             AddBox(start);
             Document.Selection.SetRange(start + 2, start + 2);
-            var typing = Document.Selection.CharacterFormat.GetClone();
+            var typing = TextLook(Document.Selection.CharacterFormat);
             typing.Strikethrough = FormatEffect.Off;
             Document.Selection.CharacterFormat = typing;
         });
@@ -587,6 +607,7 @@ public sealed partial class RichNoteEditor : RichEditBox
     /// </summary>
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        _leftward = false;
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || e.KeyModifiers != VirtualKeyModifiers.None)
         {
             return;
@@ -773,6 +794,7 @@ public sealed partial class RichNoteEditor : RichEditBox
         Change(() =>
         {
             selection.SetText(TextSetOptions.None, text.Replace("\r\n", "\r", StringComparison.Ordinal).Replace('\n', '\r'));
+            Mend(selection.StartPosition, selection.EndPosition);
             selection.Collapse(false);
         });
         selection.ScrollIntoView(PointOptions.None);
@@ -803,6 +825,7 @@ public sealed partial class RichNoteEditor : RichEditBox
     internal void Change(Action change)
     {
         Document.BeginUndoGroup();
+        _changing++;
         try
         {
             change();
@@ -813,6 +836,7 @@ public sealed partial class RichNoteEditor : RichEditBox
         }
         finally
         {
+            _changing--;
             Document.EndUndoGroup();
         }
 
@@ -830,6 +854,141 @@ public sealed partial class RichNoteEditor : RichEditBox
         change(format);
         Document.Selection.CharacterFormat = format;
     });
+
+    // ── The box's look stays on the box ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The caret never stands before a box nor between it and its space (text typed there would take the box's look,
+    /// and push the box off the start of its line): there, it goes into the item's text; leaving the item leftwards
+    /// (← from the start of its text), to the end of the line before. And what gets typed looks like text.
+    /// </summary>
+    private void KeepOffBox()
+    {
+        var selection = Document.Selection;
+        int caret = selection.StartPosition;
+        if (_placing || _loading > 0 || _changing > 0 || selection.Length != 0)
+        {
+            _caret = caret;
+            return;
+        }
+
+        int start = Paragraph(caret).Start;
+        if (caret - start is 0 or 1 && HasBox(start))
+        {
+            int target = _leftward && _caret == start + 2 && start > 0 ? start - 1 : start + 2;
+            _placing = true;
+            try
+            {
+                selection.SetRange(target, target);
+            }
+            finally
+            {
+                _placing = false;
+            }
+
+            caret = target;
+        }
+
+        _caret = caret;
+        if (HasBoxLook(selection.CharacterFormat))
+        {
+            selection.CharacterFormat = TextLook(selection.CharacterFormat);
+        }
+    }
+
+    /// <summary>After typing: the paragraph of the caret mended, once things are settled.</summary>
+    private void QueueMend()
+    {
+        if (_mendQueued)
+        {
+            return;
+        }
+
+        _mendQueued = true;
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            _mendQueued = false;
+            var paragraph = Paragraph(Document.Selection.StartPosition);
+            if (Mend(paragraph.Start, paragraph.End + 1) && _loading == 0)
+            {
+                Edited?.Invoke(this, EventArgs.Empty);
+            }
+        });
+    }
+
+    /// <summary>
+    /// Text in <c>[from, to)</c> that took a box's look (its icon font, its grey or amber) given back the text's, the rest
+    /// of its format kept (bold, size, struck…); the boxes themselves untouched. Whether anything was mended.
+    /// </summary>
+    private bool Mend(int from, int to)
+    {
+        bool mended = false;
+        try
+        {
+            Document.GetText(TextGetOptions.None, out string all);
+            to = Math.Min(to, all.Length);
+            int position = Math.Max(0, from);
+            while (position < to)
+            {
+                var run = Document.GetRange(position, position + 1);
+                run.Expand(TextRangeUnit.CharacterFormat);
+                int runStart = Math.Max(run.StartPosition, position);
+                int runEnd = Math.Min(Math.Max(run.EndPosition, position + 1), to);
+                if (HasBoxLook(run.CharacterFormat))
+                {
+                    // Every character of the run but the boxes (a box glyph at the start of its line).
+                    int segment = -1;
+                    for (int at = runStart; at <= runEnd; at++)
+                    {
+                        bool box = at < runEnd && all[at] is Box or Ticked or OldBox or OldTicked && (at == 0 || all[at - 1] == '\r');
+                        if (at < runEnd && !box)
+                        {
+                            segment = segment < 0 ? at : segment;
+                            continue;
+                        }
+
+                        if (segment >= 0)
+                        {
+                            var text = Document.GetRange(segment, at);
+                            text.CharacterFormat = TextLook(text.CharacterFormat);
+                            mended = true;
+                            segment = -1;
+                        }
+                    }
+                }
+
+                position = runEnd;
+            }
+        }
+        catch (COMException ex)
+        {
+            Debug.WriteLine($"[Notes] Not mended: {ex.Message}");
+        }
+
+        return mended;
+    }
+
+    /// <summary>A box's look: its icon font, or its grey or amber ink.</summary>
+    private static bool HasBoxLook(ITextCharacterFormat format) =>
+        format.Name == BoxFont || Same(format.ForegroundColor, BoxInk) || Same(format.ForegroundColor, TickedInk);
+
+    private static bool Same(Color a, Color b) => a.A == b.A && a.R == b.R && a.G == b.G && a.B == b.B;
+
+    /// <summary>
+    /// <paramref name="format"/> with the text's look: the editor's ink (its Foreground) and the text font; everything
+    /// else kept (size, weight, bold, italic, underline, strike).
+    /// </summary>
+    private ITextCharacterFormat TextLook(ITextCharacterFormat format)
+    {
+        var look = format.GetClone();
+        if (look.Name == BoxFont || look.Name is not { Length: > 0 })
+        {
+            look.Name = TextFont;
+        }
+
+        look.ForegroundColor = Foreground is SolidColorBrush ink ? ink.Color : Color.FromArgb(255, 0xF2, 0xF2, 0xF2);
+        return look;
+    }
 
     /// <summary>What the next character typed looks like: plain text.</summary>
     private void ResetTyping()

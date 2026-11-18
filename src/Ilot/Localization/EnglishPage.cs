@@ -46,6 +46,7 @@ internal static class EnglishPage
         (">Réessayer<", ">Retry<"),
         ("'Dossier · '", "'Folder · '"),
         ("'Envoi impossible'", "'Could not send'"),
+        (">Le PC ne répond plus : si le partage a été fermé, rouvrez-le sur la notch et scannez le nouveau code.<", ">The PC no longer answers: if the sharing was closed, open it again on the notch and scan the new code.<"),
         ("'Image collée.png'", "'Pasted image.png'"),
         ("'Échec de l’envoi'", "'Sending failed'"),
         ("'Envoyé · en attente de l’accord du PC…'", "'Sent · waiting for the PC to accept…'"),

@@ -18,11 +18,17 @@ public sealed class AssistantModule : INotchModule
     private readonly AssistantConversation _conversation;
     private readonly AppSettings _settings;
     private readonly AssistantVoice _voice;
+    private readonly ScreenCaptureService _capture;
+    private readonly MicrophoneShortcut _microphone;
 
-    public AssistantModule(AssistantConversation conversation, AssistantVoice voice, AssistantShortcut shortcut, AppSettings settings)
+    public AssistantModule(
+        AssistantConversation conversation, AssistantVoice voice, ScreenCaptureService capture, AssistantShortcut shortcut, AppSettings settings,
+        MicrophoneShortcut microphone)
     {
+        _microphone = microphone; // Made with the module: Ctrl + Alt + M is there as soon as a talk starts.
         _conversation = conversation;
         _voice = voice;
+        _capture = capture;
         _settings = settings;
         shortcut.Pressed += (_, _) => View?.Toggle();
     }
@@ -41,7 +47,7 @@ public sealed class AssistantModule : INotchModule
     /// <summary>The bar, once the notch has made it.</summary>
     public AssistantView? View { get; private set; }
 
-    public FrameworkElement CreateView(NotchContext context) => View = new AssistantView(_conversation, _voice, context, _settings);
+    public FrameworkElement CreateView(NotchContext context) => View = new AssistantView(_conversation, _voice, _capture, context, _settings);
 
     public bool OpenFromMascot()
     {

@@ -68,6 +68,9 @@ public sealed class SearchViewModel
 {
     /// <summary>Files asked of Everything (most recent first), ranked here.</summary>
     private const int FilesAsked = 150;
+
+    /// <summary>Results kept for one search: <see cref="Lines"/> of them show at once, the rest scroll.</summary>
+    private const int Listed = 50;
     private static readonly TimeSpan WaitForFiles = TimeSpan.FromMilliseconds(90);
 
     private static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -115,7 +118,8 @@ public sealed class SearchViewModel
     /// <summary>The result waiting for a second Enter (restart, shut down…); <c>null</c> if none.</summary>
     public string? Confirming => _confirming;
 
-    public int MaxResults => (int)_settings.SearchMaxResults;
+    /// <summary>How many lines the drop shows at once (see the settings); more results scroll.</summary>
+    public int Lines => (int)_settings.SearchMaxResults;
 
     /// <summary>The search opens with the last one typed (see the settings).</summary>
     public bool KeepsQuery => _settings.SearchKeepQuery;
@@ -452,26 +456,19 @@ public sealed class SearchViewModel
         folder.StartsWith(Home, StringComparison.OrdinalIgnoreCase) ? "~" + folder[Home.Length..] : folder;
 
     /// <summary>What was typed, as Everything reads it, minus the folders left out (see the settings).</summary>
-    private string EverythingQuery(string text)
-    {
-        var query = new System.Text.StringBuilder(text.Trim());
-        // One per line: "\n" as saved, "\r" as the settings' text field writes them.
-        foreach (string line in _settings.SearchExclusions.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            query.Append(" !\"").Append(line.Replace("\"", "", StringComparison.Ordinal)).Append('"');
-        }
+    private string EverythingQuery(string text) => EverythingEngine.WithExclusions(text, _settings.SearchExclusions);
 
-        return query.ToString();
-    }
-
-    /// <summary>Best first, as many as the settings say; a calculation on top, the web search last.</summary>
-    private IReadOnlyList<SearchResult> Merge(List<SearchResult> local, List<SearchResult> files)
+    /// <summary>
+    /// Best first, <see cref="Listed"/> at most; a calculation on top, the web search last (↑ from the first line goes
+    /// round to it).
+    /// </summary>
+    private static IReadOnlyList<SearchResult> Merge(List<SearchResult> local, List<SearchResult> files)
     {
         var web = local.FirstOrDefault(result => result.Kind == SearchKind.Web);
         var ranked = local.Where(result => result.Kind != SearchKind.Web)
             .Concat(files)
             .OrderByDescending(result => result.Score)
-            .Take(web is null ? MaxResults : MaxResults - 1)
+            .Take(web is null ? Listed : Listed - 1)
             .ToList();
         if (web is not null)
         {

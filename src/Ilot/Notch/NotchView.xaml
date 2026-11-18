@@ -37,6 +37,11 @@
                         <FontIcon Glyph="&#xE921;" />
                     </ToggleMenuFlyoutItem.Icon>
                 </ToggleMenuFlyoutItem>
+                <ToggleMenuFlyoutItem x:Name="TaskbarLyricsMenuItem" Click="OnTaskbarLyricsMenuItemClick" Text="Paroles dans la barre des tâches">
+                    <ToggleMenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE8D6;" />
+                    </ToggleMenuFlyoutItem.Icon>
+                </ToggleMenuFlyoutItem>
                 <MenuFlyoutItem Click="OnSettingsMenuItemClick" Text="Paramètres…">
                     <MenuFlyoutItem.Icon>
                         <FontIcon Glyph="&#xE713;" />

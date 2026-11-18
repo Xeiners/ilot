@@ -34,6 +34,8 @@ public sealed partial class AssistantView : UserControl
     private readonly AssistantPanel _panel;
     private readonly AppSettings _settings;
     private readonly AssistantVoice _voice;
+    private readonly ScreenCaptureService _capture;
+    private bool _capturing;
     private readonly Quick.MixerSlider _voiceVolume;
     private readonly string _hint;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _refresh;
@@ -43,10 +45,11 @@ public sealed partial class AssistantView : UserControl
     private IDisposable? _keyboard;
     private bool _open;
 
-    public AssistantView(AssistantConversation conversation, AssistantVoice voice, NotchContext context, AppSettings settings)
+    public AssistantView(AssistantConversation conversation, AssistantVoice voice, ScreenCaptureService capture, NotchContext context, AppSettings settings)
     {
         _conversation = conversation;
         _voice = voice;
+        _capture = capture;
         _context = context;
         _settings = settings;
         _panel = new AssistantPanel(context, settings, conversation.History);
@@ -105,10 +108,13 @@ public sealed partial class AssistantView : UserControl
         _voice.StateChanged += (_, _) =>
         {
             ShowTalking();
+            ShowStoppable();
             ActOut();
 
-            // Talking, the closed notch keeps its pill, the mascot in it as the orb: it still hears.
+            // Talking, the closed notch keeps its pill, the mascot in it as the orb: it still hears. Only the orb in it:
+            // a round pill, as tall as the closed notch (the widest asked wins: the player's sung line, if it shows).
             _context.SetPresence(_voice.IsOn ? NotchPresence.Active : NotchPresence.Nothing);
+            _context.RequestCompactWidth(_voice.IsOn ? _context.Motion.Layout.Collapsed.Height : null);
         };
         _voice.Levels += (_, levels) =>
         {
@@ -128,8 +134,42 @@ public sealed partial class AssistantView : UserControl
         };
         QuestionBox.PreviewKeyDown += OnPreviewKeyDown;
         QuestionBox.Paste += OnPaste;
-        _conversation.Changed += (_, _) =>
+        CaptureButton.Click += (_, _) => CaptureScreen();
+        _panel.InterruptRequested += (_, _) => StopAnswer();
+        _panel.MuteRequested += (_, _) => _voice.ToggleMute();
+        _voice.MutedChanged += (_, _) =>
         {
+            ShowMuted();
+            if (_voice.IsOn)
+            {
+                // Said on the closed notch (the open one shows it in the bar).
+                _context.Announce(_voice.IsMuted ? MicOffGlyph : MicGlyphOn, _voice.IsMuted ? Loc.T("Micro coupé") : Loc.T("Micro rétabli"));
+            }
+        };
+        _panel.UndoRequested += (_, entry) => _ = _conversation.UndoAsync(entry);
+        _conversation.Changed += (_, message) =>
+        {
+            // An action waits for the user's yes, or, talking, gave something to read (a command's output): the notch may
+            // be closed (the pill, while talking), so the bar opens, for them to see it.
+            bool waits = message.Action?.State == ActionState.Asking;
+            bool gave = _voice.IsOn && message.Action is { State: ActionState.Done or ActionState.Failed, Output.Length: > 0 };
+            if ((waits || gave) && !(_open && _context.IsVisible))
+            {
+                if (_voice.IsOn)
+                {
+                    // Talking, the user is in another app: the bar opens without taking the keyboard (Windows may not
+                    // give it, and the bar would close again, unseen); held open while it waits for their answer.
+                    OpenForAttention(hold: waits);
+                }
+                else
+                {
+                    Open();
+                }
+            }
+
+            ShowWaiting();
+            AnnounceDone(message.Action);
+
             if (_conversation.State == AssistantState.Talking)
             {
                 Act(MascotAct.Talk); // A bounce for the words coming (it keeps its own pace).
@@ -140,7 +180,11 @@ public sealed partial class AssistantView : UserControl
                 _refresh.Start();
             }
         };
-        _conversation.StateChanged += (_, _) => ActOut();
+        _conversation.StateChanged += (_, _) =>
+        {
+            ShowStoppable();
+            ActOut();
+        };
         _panel.NewRequested += (_, _) =>
         {
             _conversation.Clear();
@@ -188,6 +232,11 @@ public sealed partial class AssistantView : UserControl
         _conversation.Prepare();
         _context.Show();
         _keyboard ??= _context.TakeKeyboard(OnKeyboardLost);
+        if (XamlRoot is not null)
+        {
+            // The screen captured is the notch's (it is left out of it), whether the user or Gemini asks.
+            _capture.Window = Microsoft.UI.Win32Interop.GetWindowFromWindowId(XamlRoot.ContentIslandEnvironment.AppWindowId);
+        }
         QuestionBox.Focus(FocusState.Programmatic);
         QuestionBox.SelectAll();
         ShowConversation();
@@ -251,7 +300,7 @@ public sealed partial class AssistantView : UserControl
         var chosen = ChosenSize;
         _panel.PanelWidth = chosen?.Width ?? AssistantPanel.DefaultWidth;
         _panel.Show(_conversation.Messages);
-        if (!_context.IsVisible || _keyboard is null)
+        if (!_context.IsVisible || !_open) // Open with the keyboard, or for the user to see something (OpenForAttention).
         {
             return;
         }
@@ -322,8 +371,26 @@ public sealed partial class AssistantView : UserControl
             case VirtualKey.Enter when _voice.IsOn:
                 break; // Talking: nothing is written meanwhile (one or the other).
 
+            case VirtualKey.S when IsDown(VirtualKey.Control) && IsDown(VirtualKey.Shift):
+                CaptureScreen();
+                break;
+
+            // Ctrl + Z with nothing typed: the latest thing it did to the files taken back (with text, the text's own undo).
+            case VirtualKey.Z when IsDown(VirtualKey.Control) && !IsDown(VirtualKey.Shift) && QuestionBox.Text.Length == 0 && _conversation.CanUndo:
+                _ = _conversation.UndoLastAsync();
+                break;
+
             case VirtualKey.Escape when _panel.IsHistoryShown:
                 _panel.ShowHistory(false); // Back to the conversation first.
+                break;
+
+            // Talking, the question is off (read only): M cuts the microphone, or brings it back.
+            case VirtualKey.M when _voice.IsOn && !IsDown(VirtualKey.Control) && !IsDown(VirtualKey.Menu):
+                _voice.ToggleMute();
+                break;
+
+            case VirtualKey.Escape when Stoppable:
+                StopAnswer(); // Its answer first; the talk, or the bar, at the next one.
                 break;
 
             case VirtualKey.Escape when _voice.IsOn:
@@ -419,6 +486,44 @@ public sealed partial class AssistantView : UserControl
         }
     }
 
+    /// <summary>
+    /// The button, or Ctrl + Shift + S: the screen joins the question as a pasted image does (the notch left out of it,
+    /// see <see cref="ScreenCaptureService"/>); while talking, it is shown to Gemini at once (and in the conversation).
+    /// </summary>
+    private async void CaptureScreen()
+    {
+        if (_capturing || (!_voice.IsOn && _images.Count >= MostImages))
+        {
+            return;
+        }
+
+        _capturing = true;
+        CaptureButton.IsEnabled = false;
+        try
+        {
+            if (await _capture.CaptureAsync() is not { } image)
+            {
+                return;
+            }
+
+            if (_voice.IsOn)
+            {
+                await _voice.ShowScreenAsync(image);
+            }
+            else if (_images.Count < MostImages)
+            {
+                _images.Add(image);
+                ShowImages();
+                Act(MascotAct.Listen);
+            }
+        }
+        finally
+        {
+            _capturing = false;
+            CaptureButton.IsEnabled = true;
+        }
+    }
+
     /// <summary>The images joined to the question, under it: each a small rounded picture, with a cross to take it off.</summary>
     private void ShowImages()
     {
@@ -481,6 +586,138 @@ public sealed partial class AssistantView : UserControl
         }
     }
 
+    /// <summary>The closed notch's tick for what it did: the green of a task done.</summary>
+    private static readonly Windows.UI.Color DoneTint = Windows.UI.Color.FromArgb(255, 0x5B, 0xD6, 0x8A);
+
+    /// <summary>
+    /// What it just did on the PC, said on the closed notch for a moment, with a tick (« Dossier copié », « Fichier
+    /// supprimé », « 3 fenêtres fermées »), once; and what was taken back. The open notch shows nothing of it (the
+    /// conversation does): the pill only, as when talking aloud with the notch closed.
+    /// </summary>
+    private void AnnounceDone(AssistantAction? action)
+    {
+        if (action is null)
+        {
+            return;
+        }
+
+        if (action is { State: ActionState.Done, Announced: false, Said: { Length: > 0 } said })
+        {
+            action.Announced = true;
+            _context.Announce("", said, DoneTint);
+        }
+        else if (action is { State: ActionState.Failed, Announced: false })
+        {
+            // Not done (not found, refused…): said too, rather than a silence; the reason is in the conversation.
+            action.Announced = true;
+            string label = action.Label.Length > 44 ? action.Label[..43] + "…" : action.Label;
+            _context.Announce("", Loc.F("Pas fait : {0}", label), FailedTint);
+        }
+        else if (action.State == ActionState.Undone)
+        {
+            _context.Announce("", action.Outcome.Length > 0 ? action.Outcome : Loc.T("Revenu en arrière"));
+        }
+    }
+
+    /// <summary>The notch held open while an action waits for the user's answer (see <see cref="OpenForAttention"/>).</summary>
+    private IDisposable? _attention;
+
+    /// <summary>« Autorisation demandée » shows on the closed notch.</summary>
+    private bool _waitingShown;
+
+    private static readonly Windows.UI.Color WaitingTint = Windows.UI.Color.FromArgb(255, 0xFF, 0xC1, 0x4D);
+    private static readonly Windows.UI.Color FailedTint = Windows.UI.Color.FromArgb(255, 0xFF, 0x6B, 0x6B);
+
+    /// <summary>
+    /// The notch open on the conversation for the user to see something (an action to allow, a command's output) while
+    /// they talk from another app: without the keyboard (the buttons take clicks as they are), and, with
+    /// <paramref name="hold"/>, held open until nothing waits for them any more.
+    /// </summary>
+    private void OpenForAttention(bool hold)
+    {
+        _open = true;
+        if (hold)
+        {
+            _attention ??= _context.HoldOpen();
+        }
+
+        _conversation.Prepare();
+        _context.Show();
+        ShowConversation();
+        ActOut();
+    }
+
+    /// <summary>
+    /// While an action waits for the user's yes: « Autorisation demandée » stays on the closed notch (as a live activity),
+    /// and the notch is held open; both let go once it is answered (or called off).
+    /// </summary>
+    private void ShowWaiting()
+    {
+        bool asking = _conversation.Messages.Any(message => message.Action?.State == ActionState.Asking);
+        if (asking != _waitingShown)
+        {
+            _waitingShown = asking;
+            _context.SetActivity(asking ? new NotchActivity("", Loc.T("Autorisation demandée"), null, WaitingTint) : null);
+        }
+
+        if (!asking && _attention is { } attention)
+        {
+            _attention = null;
+            attention.Dispose();
+        }
+    }
+
+    private const string MicGlyphOn = "";
+    private const string MicOffGlyph = "";
+
+    /// <summary>The hint as the microphone is (and the buttons under the mascot: see <see cref="ShowControls"/>).</summary>
+    private void ShowMuted()
+    {
+        if (_voice.IsOn)
+        {
+            Hint.Text = _voice.IsMuted ? Loc.T("Micro coupé : je n'entends plus rien (M pour le rétablir)") : Loc.T("Parlez, je vous écoute…");
+        }
+
+        ShowControls();
+    }
+
+    /// <summary>
+    /// Under the mascot, beside its pill: the microphone (talking: one click cuts it, one brings it back) and
+    /// « Interrompre » (while it answers, aloud or in writing). Not up in the bar.
+    /// </summary>
+    private void ShowControls()
+    {
+        string tip = _voice.IsMuted
+            ? Loc.F("Rétablir le micro (M, ou {0} de n'importe où)", MicrophoneShortcut.Display)
+            : Loc.F("Couper le micro sans arrêter la conversation (M, ou {0} de n'importe où)", MicrophoneShortcut.Display);
+        _panel.ShowControls(_voice.IsOn, _voice.IsMuted, Stoppable, tip);
+    }
+
+    /// <summary>It answers, aloud or in writing (thinking, writing, speaking, its tools running): the user may stop it.</summary>
+    private bool Stoppable => _voice.IsOn ? _voice.IsAnswering : _conversation.IsAnswering;
+
+    /// <summary>
+    /// « Interrompre », or Escape: its answer stops, the conversation going on (what it said so far stays). Talking, the
+    /// microphone stays open: the user may say the next thing at once.
+    /// </summary>
+    private void StopAnswer()
+    {
+        if (_voice.IsOn)
+        {
+            _voice.Interrupt();
+        }
+        else
+        {
+            _conversation.Stop();
+        }
+
+        ShowStoppable();
+        ActOut();
+    }
+
+    /// <summary>« Interrompre » shows while it answers, and only then (under the mascot).</summary>
+    private void ShowStoppable() => ShowControls();
+
     /// <summary>
     /// The bar as the talk goes: the hint saying it listens, the question off meanwhile (and the pill under the mascot).
     /// </summary>
@@ -496,6 +733,7 @@ public sealed partial class AssistantView : UserControl
         Attachments.Opacity = on ? 0.4 : 1;
         AskGlyph.Opacity = on ? 0.3 : AskGlyph.Opacity;
         _panel.ShowTalking(on);
+        ShowMuted(); // The microphone button with the talk, and its hint if cut.
         ShowReady();
     }
 

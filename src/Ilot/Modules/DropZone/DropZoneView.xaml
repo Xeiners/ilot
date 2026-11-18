@@ -229,7 +229,7 @@
                         MaxLines="1"
                         TextTrimming="CharacterEllipsis"
                         Typography.NumeralAlignment="Tabular" />
-                    <!--  The IP address too, for phones that do not resolve "mynotch.local".  -->
+                    <!--  The IP address too, for phones that do not resolve "ilot.local".  -->
                     <TextBlock
                         x:Name="AlternateText"
                         Style="{StaticResource NotchSubtitleTextStyle}"
@@ -564,7 +564,7 @@
                             Style="{StaticResource NotchSubtitleTextStyle}"
                             FontSize="12"
                             MaxLines="3"
-                            Text="Écrivez un message, collez une capture d'écran, un lien ou un fichier avec Ctrl+V, ou glissez des fichiers ici : tout apparaît aussitôt sur mynotch.local."
+                            Text="Écrivez un message, collez une capture d'écran, un lien ou un fichier avec Ctrl+V, ou glissez des fichiers ici : tout apparaît aussitôt sur ilot.local."
                             TextAlignment="Center"
                             TextWrapping="Wrap" />
                     </StackPanel>
@@ -581,12 +581,12 @@
                         IsHitTestVisible="False" />
                 </Grid>
 
-                <!--  ── Composer bar ──  -->
+                <!--  ── Composer bar: one line, more with Shift+Enter or a pasted text (up to six, then it scrolls) ──  -->
                 <Border
                     Grid.Row="2"
-                    Height="40"
+                    MinHeight="40"
                     Margin="20,2,20,16"
-                    Padding="14,0,6,0"
+                    Padding="14,6,6,6"
                     Background="#14FFFFFF"
                     BorderBrush="#24FFFFFF"
                     BorderThickness="1"
@@ -606,15 +606,18 @@
                             Text="Écrire un message, un lien, ou Ctrl+V pour coller une image…" />
                         <TextBox
                             x:Name="ChatBox"
+                            MaxHeight="114"
+                            Margin="0,4,0,4"
                             VerticalAlignment="Center"
                             AutomationProperties.Name="Message pour le chat Wi-Fi local"
                             FontSize="13"
                             MaxLength="8000"
-                            Style="{StaticResource NotchFieldTextBoxStyle}" />
+                            Style="{StaticResource NotchMultilineFieldTextBoxStyle}" />
                         <controls:MotionButton
                             Grid.Column="1"
                             Width="28"
                             Height="28"
+                            VerticalAlignment="Bottom"
                             MinWidth="0"
                             Padding="0"
                             AutomationProperties.Name="Envoyer"
@@ -626,7 +629,7 @@
                             HoverScale="0.06"
                             PressScale="0.08"
                             Style="{StaticResource NotchPillButtonStyle}"
-                            ToolTipService.ToolTip="Envoyer (Entrée)">
+                            ToolTipService.ToolTip="Envoyer (Entrée) · Maj+Entrée : à la ligne">
                             <FontIcon FontSize="11" Glyph="&#xE724;" />
                         </controls:MotionButton>
                     </Grid>

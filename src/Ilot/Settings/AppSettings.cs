@@ -22,6 +22,7 @@ public sealed class AppSettings : ObservableObject
     private double _compactLyricsFontSize = 14;
     private string _lyricsPlace = LyricsInNotch;
     private double _lyricsTaskbarWidth = 300;
+    private string _lyricsTaskbarScreen = "";
     private bool _hidePlayerInNotch;
 
     /// <summary>
@@ -128,6 +129,40 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref _assistantAnswered, value ?? "");
     }
 
+    /// <summary>
+    /// The assistant may act on the PC when asked (its tools: the screen, files, the clipboard, opening, a few commands;
+    /// see Modules/Assistant/AssistantTools); off, it only talks.
+    /// </summary>
+    public bool AssistantActions
+    {
+        get => _assistantActions;
+        set => SetProperty(ref _assistantActions, value);
+    }
+
+    /// <summary>
+    /// The assistant's commands (the read-only list, see Modules/Assistant/ShellCommands) run without the user's yes;
+    /// web pages and programs are still asked about.
+    /// </summary>
+    public bool AssistantRunCommandsDirectly
+    {
+        get => _assistantRunCommandsDirectly;
+        set => SetProperty(ref _assistantRunCommandsDirectly, value);
+    }
+
+    /// <summary>
+    /// What the user allowed for good (« Toujours autoriser »): no longer asked about. Keys as AssistantTools makes them:
+    /// « web:youtube.com » (a site's pages), « open:c:\…\setup.exe » (that file), « command:ipconfig » (that program).
+    /// Replaced whole when it changes (it is saved then).
+    /// </summary>
+    public IReadOnlyList<string> AssistantAllowed
+    {
+        get => _assistantAllowed;
+        set => SetProperty(ref _assistantAllowed, value ?? []);
+    }
+
+    private IReadOnlyList<string> _assistantAllowed = [];
+    private bool _assistantActions = true;
+    private bool _assistantRunCommandsDirectly;
     private string _assistantAnswered = "";
     private double _assistantChatWidth;
     private double _assistantVoiceVolume = 100;
@@ -320,7 +355,7 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref _boostOn, value);
     }
 
-    /// <summary>The apps set past 100 %: their program (its path, in lower case) → their level (up to 2: 200 %).</summary>
+    /// <summary>The apps set past 100 %: their program (its path, in lower case) → their level (up to 3: 300 %).</summary>
     public IReadOnlyDictionary<string, double> BoostLevels
     {
         get => _boostLevels;
@@ -596,6 +631,16 @@ public sealed class AppSettings : ObservableObject
     {
         get => _lyricsTaskbarWidth;
         set => SetProperty(ref _lyricsTaskbarWidth, double.IsNaN(value) ? 300 : Math.Clamp(Math.Round(value), MinLyricsTaskbarWidth, MaxLyricsTaskbarWidth));
+    }
+
+    /// <summary>
+    /// Which screen's taskbar the sung line sits on (its device name, « \\.\DISPLAY2 »), chosen by dragging it there;
+    /// empty: the main screen's. A screen unplugged, or without a taskbar: the main one meanwhile.
+    /// </summary>
+    public string LyricsTaskbarScreen
+    {
+        get => _lyricsTaskbarScreen;
+        set => SetProperty(ref _lyricsTaskbarScreen, value ?? "");
     }
 
     /// <summary>Text size of the sung line in the closed pill (or on the taskbar), in pixels.</summary>

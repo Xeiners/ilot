@@ -7,13 +7,13 @@ using System.Text;
 namespace Ilot.Modules.DropZone.Local;
 
 /// <summary>
-/// Gives the PC a name on the local network while the sharing is open, "mynotch.local", so a phone can type that
+/// Gives the PC a name on the local network while the sharing is open, "ilot.local", so a phone can type that
 /// rather than an IP address: a minimal mDNS responder (RFC 6762) answering the questions for that name with the
 /// PC's address. No library, no service to install: one UDP socket on 5353, shared with Windows' own responder.
 /// </summary>
 /// <remarks>
 /// The name is first asked for on the network: if another PC already answers to it (another Ilot), the next one
-/// is taken ("mynotch-2.local"…). Once claimed it is announced, and withdrawn on <see cref="Dispose"/> (a record
+/// is taken ("ilot-2.local"…). Once claimed it is announced, and withdrawn on <see cref="Dispose"/> (a record
 /// with a zero lifetime, so phones forget it at once). Phones resolve <c>.local</c> names themselves: iPhone, Mac,
 /// Windows, Linux and recent Android do; the IP address stays shown for the others.
 /// </remarks>
@@ -47,7 +47,7 @@ internal sealed class MdnsResponder : IDisposable
         _address = address;
     }
 
-    /// <summary>The name answered to, "mynotch.local".</summary>
+    /// <summary>The name answered to, "ilot.local".</summary>
     public string Name => _name;
 
     /// <summary>

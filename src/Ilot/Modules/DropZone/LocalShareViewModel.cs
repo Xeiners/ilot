@@ -74,7 +74,7 @@ public sealed class LocalShareViewModel : ObservableObject
     public string Where => Loc.F("Scannez, ou tapez ({0}) :", Loc.T(_service.IsWireless ? "même Wi-Fi" : "même réseau"));
 
     /// <summary>
-    /// For a phone without a camera: "mynotch.local/4821" once the name is claimed on the network, else the IP
+    /// For a phone without a camera: "ilot.local/4821" once the name is claimed on the network, else the IP
     /// address, "192.168.1.12/4821".
     /// </summary>
     public string? TypedAddress => _service.NamedAddress ?? _service.TypedAddress;

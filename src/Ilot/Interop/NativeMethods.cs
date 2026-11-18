@@ -98,6 +98,15 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool CloseHandle(nint handle);
 
+    /// <summary>The notch's own process (a pseudo handle: nothing to close).</summary>
+    [LibraryImport("kernel32.dll")]
+    public static partial nint GetCurrentProcess();
+
+    /// <summary>With -1 for both sizes: the pages not in use leave the working set (see <c>Windowing/MemoryTrim</c>).</summary>
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetProcessWorkingSetSize(nint process, nint minimum, nint maximum);
+
     /// <summary>A process's program (its path), read with the least access there is; <c>null</c> if it is not given.</summary>
     public static unsafe string? ProcessPath(int processId)
     {
@@ -134,6 +143,49 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool GetMonitorInfo(nint monitor, ref MonitorInfo info);
+
+    /// <summary>The main screen (see <see cref="MonitorInfo.Flags"/>).</summary>
+    public const uint MONITORINFOF_PRIMARY = 1;
+
+    /// <summary>A screen's information with its device name (« \\.\DISPLAY2 »).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct MonitorInfoEx
+    {
+        public int Size;
+        public Rect Monitor;
+        public Rect Work;
+        public uint Flags;
+        public fixed ushort Device[32];
+    }
+
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetMonitorInfoEx(nint monitor, ref MonitorInfoEx info);
+
+    /// <summary>A screen's device name (« \\.\DISPLAY2 »), the same as long as it stays plugged in the same place; <c>null</c> if gone.</summary>
+    public static unsafe string? MonitorName(nint monitor)
+    {
+        var info = new MonitorInfoEx { Size = sizeof(MonitorInfoEx) };
+        if (monitor == 0 || !GetMonitorInfoEx(monitor, ref info))
+        {
+            return null;
+        }
+
+        var name = new System.Text.StringBuilder(32);
+        for (int i = 0; i < 32 && info.Device[i] != 0; i++)
+        {
+            name.Append((char)info.Device[i]);
+        }
+
+        return name.ToString();
+    }
+
+    /// <summary>Whether <paramref name="monitor"/> is the main screen.</summary>
+    public static bool IsPrimaryMonitor(nint monitor)
+    {
+        var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+        return monitor != 0 && GetMonitorInfo(monitor, ref info) && (info.Flags & MONITORINFOF_PRIMARY) != 0;
+    }
 
     /// <summary>The screen (monitor handle) the mouse pointer is on.</summary>
     public static nint CursorMonitor() =>
@@ -184,6 +236,13 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool IsZoomed(nint hwnd);
+
+    /// <summary>A Direct3D app runs in exclusive full screen (see <see cref="SHQueryUserNotificationState"/>).</summary>
+    public const int QUNS_RUNNING_D3D_FULL_SCREEN = 3;
+
+    /// <summary>What the user is doing, as Windows sees it for its notifications (a game full screen…). Read only.</summary>
+    [LibraryImport("shell32.dll")]
+    public static partial int SHQueryUserNotificationState(out int state);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

@@ -99,6 +99,37 @@ public sealed class ChatImage
         return images;
     }
 
+    /// <summary>
+    /// An image from raw pixels (<paramref name="bgra"/>: BGRA, opaque, top row first, a screen captured), made ready as a
+    /// pasted one is: scaled down if big, PNG or JPEG.
+    /// </summary>
+    public static async Task<ChatImage> FromPixelsAsync(byte[] bgra, int width, int height)
+    {
+        // Through a bitmap file in memory: quick to write, and then the same path as everything pasted.
+        byte[] bitmap = await EncodeAsync(BitmapEncoder.BmpEncoderId, bgra, (uint)width, (uint)height);
+        using var stream = new InMemoryRandomAccessStream();
+        await stream.WriteAsync(bitmap.AsBuffer());
+        stream.Seek(0);
+        return await PrepareAsync(stream);
+    }
+
+    /// <summary>The image as a JPEG: the spoken conversation takes pictures as video frames, which are (see Voice/GeminiLive).</summary>
+    public async Task<GeminiImage> JpegAsync()
+    {
+        if (Image.MimeType == "image/jpeg")
+        {
+            return Image;
+        }
+
+        using var stream = new InMemoryRandomAccessStream();
+        await stream.WriteAsync(Image.Data.AsBuffer());
+        stream.Seek(0);
+        var decoder = await BitmapDecoder.CreateAsync(stream);
+        var pixels = await decoder.GetPixelDataAsync(
+            BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied, new BitmapTransform(), ExifOrientationMode.IgnoreExifOrientation, ColorManagementMode.DoNotColorManage);
+        return new GeminiImage("image/jpeg", await EncodeAsync(BitmapEncoder.JpegEncoderId, pixels.DetachPixelData(), decoder.PixelWidth, decoder.PixelHeight));
+    }
+
     /// <summary>Decodes <paramref name="source"/>, scales it down if it is big, and encodes it to send.</summary>
     private static async Task<ChatImage> PrepareAsync(IRandomAccessStream source)
     {

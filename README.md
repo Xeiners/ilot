@@ -20,11 +20,12 @@ ailleurs. Notch vit dedans : elle danse sur votre musique, réagit à vos copies
 - **Presse-papier** : vos dernières copies, à recoller en un clic.
 - **Drop Zone** : glissez un fichier, son lien est copié ; ou envoyez-le sur votre téléphone, par le Wi-Fi.
 - **Notes** et **Pomodoro**, toujours sous la main.
-- **Révisions** : un cours devient une fiche, des flashcards et des cartes mentales, rangés par matière.
+- **Révisions** : un cours devient une fiche, des flashcards et des cartes mentales, rangés par matière ; les formules sont dessinées comme dans un livre.
 - **Recherche** (Ctrl + Q) : une appli, un fichier, un calcul, une page web.
-- **Assistant IA** : cliquez sur Notch et posez votre question, par écrit ou à voix haute.
+- **Assistant IA** : cliquez sur Notch et posez votre question, par écrit ou à voix haute. Il peut voir votre écran,
+  chercher vos fichiers, ouvrir une appli ou un projet, et lancer une commande de diagnostic (après votre accord).
 - **Volume** : à gauche de la notch ouverte, le son et la luminosité ; clic droit sur le volume, le volume de chaque appli
-  et un **booster** : une appli jusqu'à 200 % (Discord à 150 %…), sans rien installer (Windows 11).
+  et un **booster** : une appli jusqu'à 300 % (Discord à 150 %…), sans rien installer (Windows 11).
 
 ## Paramètres
 
@@ -34,12 +35,12 @@ Clic droit sur la notch → **Paramètres**.
 |---|---|
 | Général | Langue · Lancer avec Windows · Mode minimisé · Rester ouverte après un clic · Se cacher au repos (et son délai) · Mascotte et sa couleur · Masquer en plein écran · Accueil et visite guidée · Mises à jour automatiques |
 | Poignée | Largeur de la poignée · Zone de détection |
-| Recherche | Raccourci · Écran où elle s'ouvre · Garder la dernière recherche · Everything · Où chercher · Nombre de résultats · Dossiers ignorés |
+| Recherche | Raccourci · Écran où elle s'ouvre · Garder la dernière recherche · Everything · Où chercher · Résultats affichés · Dossiers ignorés |
 | Paroles | Afficher les paroles · Ligne chantée (notch ou barre des tâches) · Largeur dans la barre des tâches · Retirer le lecteur de la notch fermée · Taille du texte |
 | Presse-papier | Historique · Raccourci · Signaler chaque copie · Taille de l'historique · Effacer |
 | Drop Zone | Hébergeur · Durée de vie des liens |
 | Pomodoro | Durées du focus et des pauses · Sessions avant la grande pause · Enchaînement automatique · Carillon |
-| Assistant | Clé API Gemini · Modèle · Volume de sa voix · Raccourci |
+| Assistant | Clé API Gemini · Modèle · Laisser Notch agir sur le PC · Lancer les commandes sans demander · Volume de sa voix · Raccourci |
 
 L'assistant et les révisions utilisent Google Gemini, avec une clé gratuite
 ([Google AI Studio](https://aistudio.google.com/apikey)) : elle reste sur l'ordinateur, dans le coffre de Windows.

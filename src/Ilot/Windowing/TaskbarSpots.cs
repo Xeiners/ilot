@@ -16,24 +16,61 @@ internal static class TaskbarSpots
     private const int Button = 50000; // UIA_ButtonControlTypeId.
 
     /// <summary>
-    /// The main taskbar (in the screen's pixels), its widest free stretch (none: no room) and all of them, from left to
-    /// right (the last ones run up to the tray's icons).
+    /// A taskbar (in the screen's pixels), its widest free stretch (none: no room) and all of them, from left to right (the
+    /// last ones run up to the tray's icons, or the clock); and its whole screen.
     /// </summary>
-    public sealed record Taskbar(RectInt32 Bounds, (int Left, int Right)? Free, IReadOnlyList<(int Left, int Right)> Gaps);
+    public sealed record Taskbar(RectInt32 Bounds, (int Left, int Right)? Free, IReadOnlyList<(int Left, int Right)> Gaps, RectInt32 Screen = default);
 
-    /// <summary>The main taskbar as it is now; <c>null</c> when there is none to sit on (hidden, auto-hiding).</summary>
-    public static Task<Taskbar?> FindAsync() => Task.Run(Find);
+    /// <summary>
+    /// The taskbar of <paramref name="screen"/> (a device name, see <see cref="NativeMethods.MonitorName"/>; empty: the main
+    /// screen's) as it is now: the main one when that screen has none or is gone; <c>null</c> when there is none to sit on
+    /// (hidden, auto-hiding).
+    /// </summary>
+    public static Task<Taskbar?> FindAsync(string? screen = null) => Task.Run(() => Find(screen));
 
-    private static Taskbar? Find()
+    /// <summary>Whether <paramref name="monitor"/> shows a taskbar (Windows may show it on the main screen only).</summary>
+    public static bool HasTaskbar(nint monitor) => All().Any(tray => NativeMethods.MonitorFromWindow(tray, NativeMethods.MONITOR_DEFAULTTONEAREST) == monitor);
+
+    /// <summary>Every visible taskbar: the main one, then the other screens' ones.</summary>
+    private static List<nint> All()
     {
-        nint tray = NativeMethods.FindWindow("Shell_TrayWnd", null);
-        if (tray == 0 || !NativeMethods.IsWindowVisible(tray) || NativeMethods.TaskbarAutoHides()
+        var trays = new List<nint>();
+        nint main = NativeMethods.FindWindow("Shell_TrayWnd", null);
+        if (main != 0 && NativeMethods.IsWindowVisible(main))
+        {
+            trays.Add(main);
+        }
+
+        for (nint other = NativeMethods.FindWindowEx(0, 0, "Shell_SecondaryTrayWnd", null);
+             other != 0 && trays.Count < 16;
+             other = NativeMethods.FindWindowEx(0, other, "Shell_SecondaryTrayWnd", null))
+        {
+            if (NativeMethods.IsWindowVisible(other))
+            {
+                trays.Add(other);
+            }
+        }
+
+        return trays;
+    }
+
+    private static Taskbar? Find(string? screen)
+    {
+        var trays = All();
+        nint tray = (string.IsNullOrEmpty(screen) ? 0
+                : trays.FirstOrDefault(each => NativeMethods.MonitorName(NativeMethods.MonitorFromWindow(each, NativeMethods.MONITOR_DEFAULTTONEAREST)) == screen))
+            is not 0 and var found ? found : trays.FirstOrDefault();
+        if (tray == 0 || NativeMethods.TaskbarAutoHides()
             || !NativeMethods.GetWindowRect(tray, out var rect) || rect.Right <= rect.Left)
         {
             return null;
         }
 
         var bounds = new RectInt32(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
+        var info = new NativeMethods.MonitorInfo { Size = Marshal.SizeOf<NativeMethods.MonitorInfo>() };
+        var whole = NativeMethods.GetMonitorInfo(NativeMethods.MonitorFromWindow(tray, NativeMethods.MONITOR_DEFAULTTONEAREST), ref info)
+            ? new RectInt32(info.Monitor.Left, info.Monitor.Top, info.Monitor.Right - info.Monitor.Left, info.Monitor.Bottom - info.Monitor.Top)
+            : bounds;
         var taken = new List<(int Left, int Right)>();
         IUIAutomation? automation = null;
         try
@@ -60,7 +97,7 @@ internal static class TaskbarSpots
         catch (Exception ex) when (ex is COMException or InvalidCastException)
         {
             Debug.WriteLine($"[Taskbar] Not read: {ex.Message}");
-            return new Taskbar(bounds, null, []); // Not knowing what it shows, nothing is put on it.
+            return new Taskbar(bounds, null, [], whole); // Not knowing what it shows, nothing is put on it.
         }
         finally
         {
@@ -71,7 +108,7 @@ internal static class TaskbarSpots
         }
 
         var gaps = Gaps(rect.Left, rect.Right, taken);
-        return new Taskbar(bounds, Widest(gaps), gaps);
+        return new Taskbar(bounds, Widest(gaps), gaps, whole);
     }
 
     /// <summary>

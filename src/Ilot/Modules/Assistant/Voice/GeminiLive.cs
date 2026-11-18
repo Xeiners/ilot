@@ -10,13 +10,16 @@ namespace Ilot.Modules.Assistant.Voice;
 /// <summary>
 /// A spoken conversation with Gemini (the Live API, over a WebSocket, nothing but .NET): the microphone's sound goes up
 /// as it is heard (16 kHz PCM), Gemini's voice comes down as it speaks (24 kHz PCM), with what each says written out.
-/// Gemini hears when the user starts and stops talking by itself, and stops speaking when they talk over it. The key
-/// goes in a header, never in the address.
+/// Gemini hears when the user starts and stops talking by itself, and stops speaking when they talk over it. With
+/// tools (see AssistantTools), it may ask for them (<see cref="ToolCalled"/>): it waits for what they gave
+/// (<see cref="Respond"/>); a picture (the screen) goes up as a video frame (<see cref="Show"/>). The key goes in a
+/// header, never in the address.
 /// </summary>
 /// <remarks>Events are raised on the socket's thread: the caller takes them to its own.</remarks>
 internal sealed class GeminiLive : IAsyncDisposable
 {
-    private const string Address = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+    /// <summary>Google's Live API (the tests point it at a fake one, on this PC).</summary>
+    internal static string Address = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
 
     /// <summary>Setting up longer than this: Google does not answer.</summary>
     private static readonly TimeSpan SetupTimeout = TimeSpan.FromSeconds(12);
@@ -51,14 +54,20 @@ internal sealed class GeminiLive : IAsyncDisposable
     /// <summary>The conversation is over: Google ended it (<c>null</c> if it was asked to), with why, for the user.</summary>
     public event Action<string?>? Ended;
 
+    /// <summary>Gemini asks for its tools: it waits for what they give (see <see cref="Respond"/>).</summary>
+    public event Action<IReadOnlyList<GeminiCall>>? ToolCalled;
+
+    /// <summary>Calls not wanted any more (the user talked over them): their ids.</summary>
+    public event Action<IReadOnlyList<string>>? ToolsCancelled;
+
     /// <summary>
     /// Opens a conversation with <paramref name="model"/>: set up (its voice, its instructions, what each says written
-    /// out), and told <paramref name="history"/> (the conversation so far, written) without being asked to answer.
-    /// Throws <see cref="GeminiException"/> if Google says no (<see cref="GeminiException.ModelUnusable"/>: another model
-    /// may say yes).
+    /// out, its <paramref name="tools"/> if any), and told <paramref name="history"/> (the conversation so far, written)
+    /// without being asked to answer. Throws <see cref="GeminiException"/> if Google says no
+    /// (<see cref="GeminiException.ModelUnusable"/>: another model may say yes).
     /// </summary>
     public static async Task<GeminiLive> ConnectAsync(
-        string key, string model, string instructions, string voice, IReadOnlyList<GeminiTurn> history, CancellationToken cancellation)
+        string key, string model, string instructions, string voice, IReadOnlyList<GeminiTurn> history, JsonArray? tools, CancellationToken cancellation)
     {
         var live = new GeminiLive();
         try
@@ -77,7 +86,7 @@ internal sealed class GeminiLive : IAsyncDisposable
 
             live._receiving = Task.Run(live.ReceiveAsync);
             live._sending = Task.Run(live.SendAsync);
-            live.Send(Setup(model, instructions, voice));
+            live.Send(Setup(model, instructions, voice, tools));
             using (timeout.Token.Register(() => live._ready.TrySetCanceled()))
             {
                 await live._ready.Task;
@@ -127,6 +136,29 @@ internal sealed class GeminiLive : IAsyncDisposable
             },
         });
 
+    /// <summary>
+    /// The microphone is off (the user cut it): Google is told the sound has ended, so what was said is taken as said
+    /// (the answer comes) rather than waited for. Sound sent again later opens it again.
+    /// </summary>
+    public void EndAudio() => Send(new JsonObject { ["realtimeInput"] = new JsonObject { ["audioStreamEnd"] = true } });
+
+    /// <summary>What its tools gave (<c>functionResponse</c>s: id, name, response), for it to go on.</summary>
+    public void Respond(JsonArray responses) => Send(ToolResponse(responses));
+
+    /// <summary>A picture for it to see (a JPEG: the screen), as a video frame.</summary>
+    public void Show(GeminiImage jpeg) => Send(Frame(jpeg));
+
+    internal static JsonObject ToolResponse(JsonArray responses) =>
+        new() { ["toolResponse"] = new JsonObject { ["functionResponses"] = responses } };
+
+    internal static JsonObject Frame(GeminiImage jpeg) => new()
+    {
+        ["realtimeInput"] = new JsonObject
+        {
+            ["video"] = new JsonObject { ["data"] = Convert.ToBase64String(jpeg.Data), ["mimeType"] = jpeg.MimeType },
+        },
+    };
+
     public async ValueTask DisposeAsync()
     {
         Interlocked.Exchange(ref _ended, 1);
@@ -156,9 +188,9 @@ internal sealed class GeminiLive : IAsyncDisposable
         _life.Dispose();
     }
 
-    private static JsonObject Setup(string model, string instructions, string voice) => new()
+    internal static JsonObject Setup(string model, string instructions, string voice, JsonArray? tools)
     {
-        ["setup"] = new JsonObject
+        var setup = new JsonObject
         {
             ["model"] = $"models/{model}",
             ["generationConfig"] = new JsonObject
@@ -172,8 +204,35 @@ internal sealed class GeminiLive : IAsyncDisposable
             ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = instructions }) },
             ["inputAudioTranscription"] = new JsonObject(),
             ["outputAudioTranscription"] = new JsonObject(),
-        },
-    };
+        };
+        if (tools is { Count: > 0 })
+        {
+            setup["tools"] = new JsonArray(new JsonObject { ["functionDeclarations"] = tools.DeepClone() });
+        }
+
+        return new JsonObject { ["setup"] = setup };
+    }
+
+    /// <summary>The functions asked for in a <c>toolCall</c> message: their name, arguments and id.</summary>
+    internal static List<GeminiCall> ToolCalls(JsonElement toolCall)
+    {
+        var calls = new List<GeminiCall>();
+        if (toolCall.TryGetProperty("functionCalls", out var functions) && functions.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var function in functions.EnumerateArray())
+            {
+                if (function.TryGetProperty("name", out var name) && name.GetString() is { Length: > 0 } called)
+                {
+                    var args = function.TryGetProperty("args", out var given) && given.ValueKind == JsonValueKind.Object
+                        ? JsonNode.Parse(given.GetRawText()) as JsonObject ?? []
+                        : [];
+                    calls.Add(new GeminiCall(called, args, function.TryGetProperty("id", out var id) ? id.GetString() : null));
+                }
+            }
+        }
+
+        return calls;
+    }
 
     private void Send(JsonObject message) => _outgoing.Writer.TryWrite(message.ToJsonString());
 
@@ -284,6 +343,16 @@ internal sealed class GeminiLive : IAsyncDisposable
                 {
                     TurnDone?.Invoke();
                 }
+            }
+
+            if (root.TryGetProperty("toolCall", out var toolCall) && ToolCalls(toolCall) is { Count: > 0 } calls)
+            {
+                ToolCalled?.Invoke(calls);
+            }
+
+            if (root.TryGetProperty("toolCallCancellation", out var cancelled) && cancelled.TryGetProperty("ids", out var ids) && ids.ValueKind == JsonValueKind.Array)
+            {
+                ToolsCancelled?.Invoke([.. ids.EnumerateArray().Select(id => id.GetString()).OfType<string>()]);
             }
 
             if (root.TryGetProperty("goAway", out _) && Interlocked.Exchange(ref _ended, 1) == 0)

@@ -119,6 +119,12 @@ public sealed class NotchWindow : Window
             {
                 LoseKeyboard();
             }
+
+            // An app that keeps itself on top (a player, a call, a game's launcher) came forward over the notch: back above.
+            if (_meantShown && !_hiding)
+            {
+                StayOnTop();
+            }
         };
 
         // Called by a shortcut while out of sight (an app full screen): it shows, then goes out of sight again at rest.
@@ -280,9 +286,14 @@ public sealed class NotchWindow : Window
         {
             _meantShown = true;
             NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
+            StayOnTop(); // Hidden, it has been passed over by the windows kept on top meanwhile.
             _view.Arrive();
         }
     }
+
+    /// <summary>Above every window, the ones kept on top too, without taking the focus.</summary>
+    private void StayOnTop() => NativeMethods.SetWindowPos(_hwnd, NativeMethods.HWND_TOPMOST, 0, 0, 0, 0,
+        NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
 
     private void ConfigureChrome()
     {

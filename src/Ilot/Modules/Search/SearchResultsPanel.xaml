@@ -36,21 +36,73 @@
             <RowDefinition Height="34" />
         </Grid.RowDefinitions>
 
-        <Grid Padding="8,8,8,4">
-            <!--  The chosen line: glides from line to line on a spring (see SearchResultsPanel).  -->
-            <Border
-                x:Name="Highlight"
-                Height="50"
+        <Grid>
+            <!--
+                The lines: as many show as the settings say, the rest scroll (wheel, arrows, Page ↑ / Page ↓). The
+                scroller's own bar is hidden: a slim one of the notch's own shows where one is (see SearchResultsPanel).
+            -->
+            <ScrollViewer
+                x:Name="Scroller"
+                HorizontalScrollBarVisibility="Disabled"
+                HorizontalScrollMode="Disabled"
+                VerticalScrollBarVisibility="Hidden"
+                VerticalScrollMode="Enabled"
+                ZoomMode="Disabled">
+                <Grid Margin="8,8,8,4" VerticalAlignment="Top">
+                    <!--  The chosen line: glides from line to line on a spring (see SearchResultsPanel).  -->
+                    <Border
+                        x:Name="Highlight"
+                        Height="50"
+                        VerticalAlignment="Top"
+                        Background="#1CFFFFFF"
+                        BorderBrush="#12FFFFFF"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        IsHitTestVisible="False" />
+                    <StackPanel x:Name="Rows" VerticalAlignment="Top" />
+                </Grid>
+            </ScrollViewer>
+
+            <!--  More above, more below: the lines melt into the drop's black at that edge.  -->
+            <Rectangle
+                x:Name="TopFade"
+                Height="18"
                 VerticalAlignment="Top"
-                Background="#1CFFFFFF"
-                BorderBrush="#12FFFFFF"
-                BorderThickness="1"
-                CornerRadius="14"
+                IsHitTestVisible="False">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Offset="0" Color="#FF000000" />
+                        <GradientStop Offset="1" Color="#00000000" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <Rectangle
+                x:Name="BottomFade"
+                Height="18"
+                VerticalAlignment="Bottom"
+                IsHitTestVisible="False">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Offset="0" Color="#00000000" />
+                        <GradientStop Offset="1" Color="#FF000000" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+
+            <!--  Where one is in the list: a slim bar at the right edge, only when there is more than shows.  -->
+            <Border
+                x:Name="Thumb"
+                Width="3"
+                Margin="0,10,3,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Background="#40FFFFFF"
+                CornerRadius="1.5"
                 IsHitTestVisible="False" />
-            <StackPanel x:Name="Rows" VerticalAlignment="Top" />
+
             <TextBlock
                 x:Name="NoResults"
-                Margin="20,0"
+                Margin="28,8,28,4"
                 VerticalAlignment="Center"
                 FontFamily="Segoe UI Variable Text"
                 FontSize="13"

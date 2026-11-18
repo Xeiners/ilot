@@ -46,9 +46,10 @@ public sealed partial class SettingsWindow : Window
     public SettingsWindow(
         AppSettings settings, ClipboardHistory clipboard, ClipboardShortcut shortcut, EverythingEngine everything,
         ApiKeyStore keys, GeminiClient gemini, AssistantShortcut assistantShortcut, SearchShortcut searchShortcut,
-        Ilot.Updates.AppUpdater updater)
+        Ilot.Updates.AppUpdater updater, Ilot.Modules.Assistant.FileJournal journal)
     {
         Settings = settings;
+        _journal = journal;
         _clipboard = clipboard;
         _shortcut = shortcut;
         _everything = everything;
@@ -77,10 +78,14 @@ public sealed partial class SettingsWindow : Window
         ShowAssistantShortcut();
         ShowSearchShortcut();
         ShowKeyState();
+        ShowAllowed();
+        ShowJournal();
         _ = FillModelsAsync(null);
         Settings.PropertyChanged += OnSettingsChanged;
+        journal.Changed += OnJournalChanged;
         Closed += (_, _) =>
         {
+            journal.Changed -= OnJournalChanged;
             Settings.PropertyChanged -= OnSettingsChanged;
             _shortcut.CancelRecording();
             _assistantShortcut.CancelRecording();
@@ -108,9 +113,140 @@ public sealed partial class SettingsWindow : Window
         {
             ShowSearchShortcut();
         }
+        else if (e.PropertyName == nameof(AppSettings.LyricsPlace) && LyricsPlaceBox.SelectedIndex != LyricsPlaceIndex)
+        {
+            LyricsPlaceBox.SelectedIndex = LyricsPlaceIndex; // Changed from the notch's menu while the settings are open.
+        }
+        else if (e.PropertyName == nameof(AppSettings.AssistantAllowed))
+        {
+            ShowAllowed(); // Allowed for good from the assistant while the settings are open.
+        }
     }
 
     // ── Assistant ───────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>What the user allowed for good (« Toujours autoriser »): one line each, with a cross to take it back.</summary>
+    private void ShowAllowed()
+    {
+        AllowedList.Children.Clear();
+        if (Settings.AssistantAllowed.Count == 0)
+        {
+            AllowedList.Children.Add(new TextBlock
+            {
+                Text = Loc.T("Rien pour l'instant : Notch vous demande à chaque fois."),
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            });
+            return;
+        }
+
+        foreach (string key in Settings.AssistantAllowed)
+        {
+            var line = new Grid { ColumnSpacing = 8 };
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            line.Children.Add(new TextBlock
+            {
+                Text = Ilot.Modules.Assistant.AssistantTools.Describe(key),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+            var remove = new Button
+            {
+                Padding = new Thickness(8, 5, 8, 5),
+                Content = new FontIcon { Glyph = "", FontSize = 11 },
+            };
+            Grid.SetColumn(remove, 1);
+            ToolTipService.SetToolTip(remove, Loc.T("Ne plus autoriser d'office"));
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(remove, Loc.T("Ne plus autoriser d'office"));
+            remove.Click += (_, _) => Settings.AssistantAllowed = [.. Settings.AssistantAllowed.Where(kept => kept != key)];
+            line.Children.Add(remove);
+            AllowedList.Children.Add(line);
+        }
+    }
+
+    private readonly Ilot.Modules.Assistant.FileJournal _journal;
+
+    /// <summary>The journal's lines shown at most (the latest).</summary>
+    private const int JournalShown = 30;
+
+    /// <summary>Something done to the files, or taken back, while the settings are open (the journal may say so from any thread).</summary>
+    private void OnJournalChanged(object? sender, EventArgs e) => DispatcherQueue.TryEnqueue(ShowJournal);
+
+    /// <summary>
+    /// What Notch did to the files, the latest first: when, what (from → to), and « Annuler » for what may still be
+    /// taken back (it says why not, if it cannot).
+    /// </summary>
+    private void ShowJournal()
+    {
+        JournalList.Children.Clear();
+        var entries = _journal.Entries;
+        if (entries.Count == 0)
+        {
+            JournalList.Children.Add(new TextBlock
+            {
+                Text = Loc.T("Rien pour l'instant."),
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            });
+            return;
+        }
+
+        foreach (var entry in entries.Take(JournalShown))
+        {
+            var line = new Grid { ColumnSpacing = 8 };
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var secondary = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+            line.Children.Add(new TextBlock
+            {
+                Text = entry.At.ToLocalTime().ToString("g", Loc.Culture),
+                Foreground = secondary,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            var what = new TextBlock
+            {
+                Text = entry.Describe(),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Opacity = entry.Undone ? 0.55 : 1,
+            };
+            ToolTipService.SetToolTip(what, entry.Describe());
+            Grid.SetColumn(what, 1);
+            line.Children.Add(what);
+            if (!entry.CanUndo)
+            {
+                // Taken back already; or deleted: in the Recycle Bin, restored from there.
+                string state = entry.Undone ? Loc.T("Revenu en arrière") : Loc.T("À la Corbeille");
+                var undone = new TextBlock { Text = state, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(undone, 2);
+                line.Children.Add(undone);
+            }
+            else
+            {
+                var undo = new Button { Padding = new Thickness(10, 4, 10, 5), Content = Loc.T("Revenir en arrière") };
+                ToolTipService.SetToolTip(undo, entry.Change == Ilot.Modules.Assistant.FileChange.Move
+                    ? Loc.T("Le remettre où il était")
+                    : Loc.T("Le mettre à la Corbeille"));
+                undo.Click += async (_, _) =>
+                {
+                    undo.IsEnabled = false;
+                    if (await _journal.UndoAsync(entry) is { } why)
+                    {
+                        undo.IsEnabled = true;
+                        ToolTipService.SetToolTip(undo, why); // Why not, where the user looks.
+                        what.Text = $"{entry.Describe()} — {why}";
+                    }
+                };
+                Grid.SetColumn(undo, 2);
+                line.Children.Add(undo);
+            }
+
+            JournalList.Children.Add(line);
+        }
+    }
 
     /// <summary>A key is saved, or not: the field says so (the key itself is never shown again).</summary>
     private void ShowKeyState()
@@ -662,7 +798,7 @@ public sealed partial class SettingsWindow : Window
 
     public double MaxSearchResults => AppSettings.MaxSearchResults;
 
-    public string FormatResults(double count) => Loc.F("{0:0} au plus, les meilleurs d'abord.", count);
+    public string FormatResults(double count) => Loc.F("{0:0} à la fois, les suivants en faisant défiler.", count);
 
     private void OnEverythingChanged(object? sender, EventArgs e) => ShowEverything();
 

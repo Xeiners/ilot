@@ -101,6 +101,9 @@ public partial class App : Application
         }
 
         await _services.GetRequiredService<IMediaSessionService>().StartAsync();
+
+        // Starting touched much that is not needed again (every view built, the settings read…): given back once quiet.
+        MemoryTrim.Schedule();
     }
 
     /// <summary>
@@ -185,9 +188,13 @@ public partial class App : Application
         services.AddSingleton<ApiKeyStore>();
         services.AddSingleton<GeminiClient>();
         services.AddSingleton(provider => new AssistantHistory(provider.GetRequiredService<DispatcherQueue>()));
+        services.AddSingleton<ScreenCaptureService>();
+        services.AddSingleton<FileJournal>(); // What Notch did to the files: kept, to take back.
+        services.AddSingleton<IAssistantTools, AssistantTools>(); // What Notch may do on the PC, when asked.
         services.AddSingleton<AssistantConversation>();
         services.AddSingleton<Ilot.Modules.Assistant.Voice.AssistantVoice>();
         services.AddSingleton<AssistantShortcut>();
+        services.AddSingleton<Ilot.Modules.Assistant.Voice.MicrophoneShortcut>(); // Ctrl + Alt + M while talking: the microphone cut or back.
         services.AddSingleton<AssistantModule>();
         services.AddSingleton<INotchModule>(provider => provider.GetRequiredService<AssistantModule>());
 
@@ -208,7 +215,11 @@ public partial class App : Application
         if (_settingsWindow is null)
         {
             _settingsWindow = _services!.GetRequiredService<SettingsWindow>();
-            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+            _settingsWindow.Closed += (_, _) =>
+            {
+                _settingsWindow = null;
+                MemoryTrim.Schedule(); // What it used, given back once it is left alone.
+            };
             _settingsWindow.WelcomeRequested += (_, _) => ShowWelcome();
             _settingsWindow.TourRequested += (_, _) => StartTour();
         }
@@ -241,6 +252,8 @@ public partial class App : Application
             {
                 _welcome = null;
             }
+
+            MemoryTrim.Schedule();
         };
         welcome.Finished += (_, tour) =>
         {

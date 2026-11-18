@@ -108,7 +108,7 @@ public class GlobalShortcut : IDisposable
     }
 
     /// <summary>The hook is there only while it has something to do.</summary>
-    private void Update()
+    protected void Update()
     {
         bool wanted = _enabled() || _recording is not null;
         if (wanted && _hook == 0)

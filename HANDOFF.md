@@ -157,15 +157,79 @@ se déplie), `RowScroller` (flèches ‹ › et molette pour les rangées horizo
 ### Média — stable
 `Modules/Media/`. Sessions SMTC, visualiseur WASAPI loopback (ne tourne que pendant la lecture), paroles
 LRCLIB, volume Core Audio, carte « appareil connecté ».
+- **Recherche des paroles : une note par candidat** — nouveau. Avant : titre et artiste du lecteur, puis le premier
+  résultat synchronisé à 5 s près (n'importe lequel si la durée n'était pas encore connue, et ce choix restait en cache).
+  Maintenant `LyricsMatcher` (pur, testé hors réseau) :
+  - `Clean` : retire tout ce qui est entre crochets (en gardant les « feat. » comme artistes et les versions : live,
+    remix, acoustic, instrumental, demo, cover, sped up/slowed, orchestral, acapella), les fins « - Remastered 2011 »,
+    « - Radio Edit », « - Live at… », « - From "…" », « - feat. X » (jamais un titre qui commence pareil : « Oasis - Live
+    Forever », « U2 - With Or Without You »), un « feat. » dans le titre.
+  - `Readings` : le morceau tel quel, et pour un titre de vidéo « A - T », « T | A », « A「T」 », « A "T" » (tirets –, —,
+    ~, //). La note retient la meilleure lecture.
+  - `Score` (sur 100) : titre 45 (`Similarity` : identique, mêmes lettres sans espaces, mots en commun, Levenshtein,
+    l'un dans l'autre ; seuil 0,75), artiste 35 (meilleure paire, crédit entier compris : « Tyler, The Creator » ;
+    seuil 0,6 ; un invité seulement ×0,9), durée 15 (≤ 1,5 s : plein ; rejet au-delà de 8 s), album +5, version
+    différente −30. Accepté à 72 avec la durée, 85 sans ; sans artiste, titre quasi identique et durée exigés.
+  - `LrcLibLyricsService` : `api/get` exact (si album et durée) + `api/search` pour les deux premières lectures, en
+    parallèle ; si rien n'atteint 90, `api/search?q=` sur les mots (artiste + titre, puis le titre seul). Une requête
+    en échec n'annule pas les autres ; aucune réponse du tout : rien en cache. Clé de cache : artiste, titre, album,
+    durée arrondie.
+  - `LyricsViewModel` : si la durée arrive après le titre, une seconde recherche (`LookAsync(again: true)`) ; les paroles
+    affichées restent jusqu'à mieux, et ne sont pas redessinées si ce sont les mêmes.
+  - **Vidéos postées par une chaîne** (AMV, clips de paroles) : `Clean` retire 「AMV」『MV』 (`Decorated` : seulement si
+    c'est une décoration ; « Artiste「Titre」 » reste une lecture), les tirets doublés qui restent, et les décorations en
+    fin ou en début (« - Anime MV », « | Lyrics », « AMV - », `DecorationEnd` / `DecorationStart`), et note `Video`.
+    Une lecture « titre seul, sans artiste » s'ajoute alors (titre vidéo, ou `LyricsQuery.Source` = un navigateur, ou pas
+    d'artiste) : titre ≥ 0,93, durée à 3 s, −5 points, et **seulement si ce titre est celui d'un seul artiste** parmi
+    les candidats (`SingleArtist` : LRCLIB a vingt « Someone Like You », et celui de Myya's Diary, joué dans l'AMV du
+    retour utilisateur, n'y est pas : rien plutôt qu'Adele). Chaque partie d'un titre coupé (« Chanson - Anime ») est
+    essayée seule aussi, et cherchée seule (3 recherches larges au plus). Jamais pour une appli de musique (Spotify : l'artiste est le
+    chanteur, un autre morceau du même nom et de même durée passerait). Les recherches avec artiste d'abord ; le titre
+    seul vient avec la recherche large.
+  - **Pas de paroles non synchronisées** (essayées puis retirées à la demande de l'utilisateur : « inutile »). Une
+    version qui ne tombe pas en rythme n'a pas de paroles. Cas réel : « Shawn Mendes - Heart of Gold (Live From The
+    Clubhouse Sessions) », vidéo de 687 s autour du morceau, LRCLIB n'a que le studio (172 s) : rien, et c'est voulu.
+  - Tests : `scratchpad/lyricstest` (52 cas hors réseau, dont les AMV : radio edit, live demandé ou non, VEVO, « | », japonais, même
+    titre autre artiste, accents, AC/DC, durée trop loin, remix refusé, sans artiste ; `dotnet run -- live` interroge
+    LRCLIB sur quelques morceaux célèbres).
 - **Paroles dans la barre des tâches** — nouveau, jamais vu à l'écran. Réglage `AppSettings.LyricsPlace` (`notch` par
   défaut, ou `taskbar`) : Paramètres → Paroles → « Ligne chantée » (liste ; l'aperçu montre la notch fermée ou une barre
   des tâches). Seule la ligne de la notch **fermée** change de place : la notch ouverte garde ses paroles. Dans
   `MediaView`, un canal à part `m.PillLyrics` (`InPill` : paroles montrées et pas pour la barre des tâches) règle la ligne
   de la pilule et sa largeur (`RequestCompactWidth`) ; `m.Lyrics` reste pour la notch ouverte. La pilule n'a plus de ligne
   de progression (retirée : inutile fermée) : entre la pochette et le visualiseur, seulement la ligne chantée s'il y a des paroles ;
-  sans paroles, la pilule se resserre sur la pochette et la mascotte (`MediaView.SizePill` / `NarrowPill` : la largeur
+  sans paroles, la pilule se resserre (`MediaView.SizePill` / `NarrowPill` : la largeur
   demandée peut maintenant être plus petite que celle de la notch, `NotchLayout.ShapeFor`, jamais moins que ronde).
+  - **Pochette seulement à côté de la ligne chantée** (demande utilisateur, jamais vu à l'écran) : canal `m.PillArt`
+    (suit `InPill`, comme `m.PillLyrics`) dans l'opacité de `ArtworkHost` fermé. Sans ligne sur la pilule (pas de paroles,
+    ou paroles dans la barre des tâches, qui montre déjà la pochette), `NarrowPill` = la hauteur de la notch fermée
+    (36 px : pilule ronde, la mascotte centrée qui danse, puisqu'elle se place à `i` du bord droit) ou, sans mascotte, le
+    visualiseur seul (28 px + 12 px de chaque côté). À l'ouverture, la pochette fleurit comme avant
+    (`n.Expansion * 2.2 - 0.6`). `MascotRoom` retiré (inutile).
+  - **Pas de lecteur fantôme à l'ouverture sur un autre onglet** (capture utilisateur : la pochette à demi visible
+    derrière la barre de recherche pendant l'ouverture par `Ctrl + Q`) : `OpenContent` s'efface par
+    `Lerp(1, TabOpacity, n.Progress)` (la pilule reste visible fermée, quel que soit l'onglet), mais ses parties
+    fleurissaient avec `n.Expansion` sans tenir compte de l'onglet : ouverte sur un autre, la pochette montait jusqu'à
+    ~0,29 d'opacité, le halo ~0,25, le titre aussi, avant de disparaître. Chaque floraison est maintenant multipliée par
+    `TabBloom` = `TabOpacity / Lerp(1, TabOpacity, n.Progress)` (1 sur l'onglet du lecteur, 0 sur un autre, 1 une fois
+    ouverte : le changement d'onglet ouvert est identique) ; le halo (hors d'`OpenContent`) par `TabOpacity`. Courbes
+    vérifiées par calcul : fantôme à 0, ouverture sur le lecteur et changement d'onglet inchangés, pochette de la pilule
+    (avec paroles) qui s'efface comme avant. Jamais vu à l'écran.
   `PlaceLyrics` crée ou retire `TaskbarLyrics` selon le réglage ; un clic sur la ligne ouvre la notch sur le lecteur.
+  - **Sur l'écran choisi** (nouveau, jamais vu à l'écran) : glissée au-delà de 6 px (`TaskbarLyricsWindow.Follow`, sinon
+    c'est un clic), la fenêtre suit le pointeur ; lâchée (`Dropped`), `TaskbarLyrics.OnDropped` garde l'écran sous le
+    pointeur s'il a une barre des tâches (`TaskbarSpots.HasTaskbar`) dans `AppSettings.LyricsTaskbarScreen` (nom de
+    périphérique « \\.\DISPLAY5 », `NativeMethods.MonitorName` / `MonitorInfoEx` ; vide pour l'écran principal, qui suit
+    alors l'écran principal). `TaskbarSpots.FindAsync(screen)` cherche `Shell_TrayWnd` puis les `Shell_SecondaryTrayWnd`
+    (`FindWindowEx`) ; écran sans barre ou débranché : la principale. `Taskbar.Screen` (tout l'écran) sert au
+    `FullscreenWatcher` des paroles (plein écran sur cet écran-là). Vérifié en lecture sur le PC de l'utilisateur : deux
+    écrans, DISPLAY1 principal et DISPLAY5 à gauche, la barre secondaire expose ses boutons et son horloge à UIA.
+    - **Bug corrigé (retour utilisateur : « je peux glisser mais ça disparaît »)** : `TaskbarLyrics.Spot` testait
+      « trouvé » avec `is not { Right: > 0 }` (le défaut de `LastOrDefault` étant (0, 0)). Sur un écran à gauche du
+      principal, tout est négatif : la place contre l'horloge de DISPLAY5 finit à -106, donc « pas de place », la ligne
+      se retirait (et la pilule revenait sur la notch), à chaque lancement aussi puisque l'écran restait gardé. Désormais
+      un `null` dit « rien trouvé ». Vérifié sur les mesures lues de ses barres (`scratchpad/spotcheck`) : ancien test,
+      aucune place ; nouveau, la fenêtre de -677 à -110 (567 px, les lignes à 509), juste avant l'horloge.
   - **Où** (`Windowing/TaskbarSpots`) : UI Automation (`Interop/UIAutomation.cs`, interfaces COM réduites à l'ordre de
     leur vtable) sur `Shell_TrayWnd` : tous les boutons (Démarrer, recherche, applis, icônes de la zone de notification,
     horloge… : la barre de Windows 11 est en XAML, `TrayNotifyWnd` donne une place périmée), leurs étendues fusionnées,
@@ -212,6 +276,11 @@ LRCLIB, volume Core Audio, carte « appareil connecté ».
 Pour l'utilisateur, l'IA s'appelle **Notch** (le nom de la mascotte) : jamais « Gemini » dans ce qu'elle fait (« Notch
 lit le cours… ») ; « Gemini » reste pour la clé et le service (paramètres, quotas). L'assistant se présente aussi ainsi
 (`AssistantConversation.Instructions`, `AssistantVoice.Instructions` : « Tu t'appelles Notch… »).
+La voix tient la langue de l'appli (français ; anglais si l'interface l'est, par la traduction de la consigne) : « RÉPONDS
+EN FRANÇAIS. TU DOIS TOUJOURS RÉPONDRE EN FRANÇAIS… », en capitales comme Google le conseille pour les modèles audio
+natifs (ils choisissent leur langue d'après ce qu'ils entendent et ne prennent pas de `languageCode`). Avant : « dans la
+langue de l'utilisateur », et un français mal entendu les faisait répondre en allemand ou en espagnol (vu par
+l'utilisateur). L'écrit garde « la langue de la question » (tapée, elle ne se trompe pas).
 `Modules/Study/`, onglet « Révisions » (après Notes, glyphe E7BE). Six onglets tiennent (calcul : ~592 px sur 660).
 - **Import** : « Importer un cours » (`Microsoft.Windows.Storage.Pickers.FileOpenPicker`, fenêtre de la notch via
   `XamlRoot.ContentIslandEnvironment.AppWindowId`, notch tenue ouverte) ou un dépôt sur la notch **ouverte sur cet
@@ -237,9 +306,17 @@ lit le cours… ») ; « Gemini » reste pour la clé et le service (paramètres
   `SummaryParts`, `CardsWritten` / `CardsTarget` et ses étapes `OutlineStep`, `SummaryStep`, `CardsStep` (`StudyStep`).
   Tout est streamé, réflexion bornée (`GeminiClient.LightThinking` pour la fiche et les cartes : budget 1024 en 2.5,
   « low » en 3 ; un modèle qui refuse le réglage est redemandé sans) : laissé libre, un modèle réfléchissait des minutes
-  sur un cours de 200 pages sans rien écrire (vu : bloqué sur « Le plan du cours »). Abandon après 4 min sans premier
-  mot (`FirstWordWithin`) puis 2 min sans nouveau morceau (`PieceWithin`) : pas de limite de durée totale. Un modèle
-  n'est remplacé par le suivant que s'il échoue avant d'avoir écrit quoi que ce soit. L'attente montre le temps écoulé
+  sur un cours de 200 pages sans rien écrire (vu : bloqué sur « Le plan du cours »). Un modèle **muet** est passé
+  pour le suivant, comme un surchargé (`GeminiException.Silent`, mis de côté 2 min, `SilentRest`) : 90 s sans premier
+  mot (`FirstWordWithin`) ou 60 s sans nouveau morceau (`PieceWithin`), avec une note sous l'étape (« Google tarde à
+  répondre : Notch essaie un autre modèle… ») ; après 3 muets (`SilentPasses`) : « Google ne répond pas en ce moment :
+  réessayez dans quelques minutes. ». Avant : 4 min puis 2 min, et un muet arrêtait tout (vu le 17/11 : 9 min 30 pour
+  « réessayez », gemini-3.8-flash muet 4 min sur la fiche et les cartes, un 503 de gemini-3.6-flash au bout de 3 min 17
+  pendant le plan). Le modèle qui vient de répondre est demandé **en premier pendant 10 min** (`_answered`,
+  `AnsweredFirstFor` : ceux d'avant lui dans la liste étaient surchargés ou muets ; plus en tête s'il est passé à son
+  tour). Testé contre un faux Gemini local (studytest, fausse clé, faux profil) : muet → surchargé → répond en 90 s ;
+  redemandé, le dernier à avoir répondu seul et tout de suite ; trois muets → le message en 270 s ; bloqué en pleine
+  réponse → le suivant en 60 s. L'attente montre le temps écoulé
   (« 1:12 », `StudyDeck.Started`, une minuterie d'une seconde seulement pendant le travail).
   Les consignes (`Instructions`) : tout du document seul, termes exacts, page = position dans le PDF, langue du document.
   Les textes envoyés à Gemini restent en français (pas de `Loc`).
@@ -409,9 +486,25 @@ lit le cours… ») ; « Gemini » reste pour la clé et le service (paramètres
   `GeminiClient.JsonRequest` (le corps de `StreamJsonAsync`) en met des copies (`DeepClone`). Testé dans studytest.
 - **Révision** (`StudyScheduler`, SM-2 façon Anki) : étapes 1 min, 10 min ; diplômée à 1 j (Facile : 4 j) ; facilité
   2,5 (min 1,3) ; Difficile ×1,2 −0,15 ; Bien ×facilité ; Facile ×facilité×1,3 +0,15 ; oubli : réapprentissage 10 min,
-  −0,2, intervalle ×0,2 ; 365 j au plus ; le jour commence à 4 h. `ReviewSession` : apprentissage dû, puis révisions
-  dues, puis 20 nouvelles au plus par session, puis apprentissage en avance (20 min). Clavier : Espace/Entrée, 1 à 4
-  (bail clavier pris au premier clic dans la carte).
+  −0,2, intervalle ×0,2 ; 365 j au plus ; le jour commence à 4 h. `ReviewSession` : ses cartes tirées à son début, **mélangées**, chacune
+  une fois (« Carte 3 sur 40 ») ; sur un cours (`Whole`) : **toutes** ses cartes (demandé : refaire les mêmes, le cumul
+  avec les nouvelles) ; sur une section ou tout : celles dues (nouvelles, apprentissage à 20 min près, révisions dues).
+  `Answer` ne fait avancer la carte dans `StudyScheduler` que si elle était due (sinon « Bien » cinq fois dans la
+  journée l'enverrait à un mois) : avant son heure, elle compte pour la note seulement. `Again()` : la même, retirée
+  (les cartes faites entre-temps dedans). Une carte supprimée en route est sautée. Note (`StudyResults.cs`, `SessionScore.Grade`) : sur 20, Bien/Facile 1,
+  Difficile ½, À revoir 0. À la fin (`ReviewView.ShowDone`, une fois : `_cheered`) : `StudyViewModel.Record` garde une
+  ligne par cours de la session (table `Results` : session, deck_id, scope, finished_at, again/hard/good/easy ; effacée
+  avec le cours) ; `History(scope)` : pour un cours (« deck:12 »), sa part de chaque session où il était ; pour une
+  section (« section:Nom ») ou tout (« all »), les sessions entières. L'écran de fin : la note (vert ≥ 14, orange ≥ 10,
+  rouge), le détail, l'écart avec la session d'avant (arrondi au ½ point), les 12 dernières en barres (infobulle : date,
+  note, cartes), moyenne des 5 dernières, meilleure ; « Recommencer · N cartes » (un cours) ou « Session suivante »
+  (Espace) si `Following` > 0. Rien à revoir : l'historique quand même. Bouton **Historique** (rangée du haut, à droite ;
+  caché en revoyant une carte, où « Suivante » est) : `ShowGrades`, la session laissée dessous (« Revenir », Échap) :
+  moyenne / meilleure / dernière, les 30 dernières en barres (`Bars`), chaque session, la plus récente d'abord (date,
+  détail, écart, note). « Revenir » et non « Retour » : « Retour » est déjà traduit « Backspace » (la touche). Nouvelles cartes faites en route : la session repart avec si rien n'a été répondu, sinon elles
+  sont pour la suivante. Clavier : Espace/Entrée, 1 à 4 (bail clavier pris au premier clic dans la carte). Pas de 5ᵉ mode
+  « Progrès » dans la feuille (à 700 px, les quatre modes et « Nouvelles cartes » remplissent la barre) : l'historique est
+  un bouton de la révision.
 - **Vue** (`StudyView`) : rangée de `DeckTile` (dû / préparation / échec, titre, barre de maîtrise) ; feuille dans la
   bulle (880 × 660 par défaut, redimensionnable) : Réviser / Fiche (MarkdownLite, « Copier ») / Cartes (modifier,
   supprimer) ; « Nouvelles cartes » ouvre une bande (sur quoi, combien, Générer). Le travail de Gemini est suivi sur
@@ -549,6 +642,21 @@ bas niveau.
 
 ### Drop Zone — stable, partage local récent
 `Modules/DropZone/`.
+- **Chat Wi-Fi local, retours utilisateur** (corrigé, jamais vu à l'écran) :
+  - « Seule la première ligne d'un long texte » : le champ (`ChatBox`) était une TextBox d'une ligne, qui ne garde que la
+    première ligne d'un collage. Style `NotchMultilineFieldTextBoxStyle` (`Themes/Notch.xaml` : AcceptsReturn, Wrap,
+    défilement vertical), `MaxHeight` 114, barre en `MinHeight` 40, bouton d'envoi en bas. Entrée envoie dans
+    `PreviewKeyDown` (sinon la TextBox la prend pour un retour à la ligne), Maj + Entrée va à la ligne ; « \r » devient « \n ».
+  - Messages reçus : `BodyText` sans `MaxLines=12` (il tronquait), sélectionnable.
+  - « Ça ne marche pas des fois » : le partage s'arrêtait après 10 min sans requête, l'attente longue `/chat/events` ne
+    comptant pas ; le téléphone restait alors sur une page morte, et un message tapé sur le PC était ignoré
+    (`SendText` → null). Maintenant `IsWatched` (une attente en cours, ou finie il y a moins d'une minute) garde le
+    partage tant qu'un message ou un envoi a eu lieu dans les deux dernières heures (`_lastActive`) ;
+    `SendTypedChatAsync` redémarre le partage s'il s'est arrêté ; la page affiche « Le PC ne répond plus… » après trois
+    échecs de suite (`#offline`), et le retire quand il répond.
+- **Plantage du 16/11** (`errors.log`) : `TaskbarLyricsWindow.Disappear` cachait la fenêtre à la fin de son fondu alors
+  qu'elle avait été fermée entre-temps (paroles retirées de la barre des tâches) : `NullReferenceException`. Drapeau
+  `_closed`.
 - **Le vrai type des fichiers** (vu : un PDF reçu sur le téléphone en « cours.pdf.txt ») : la page du téléphone télécharge
   elle-même les fichiers de moins de 512 Mo (`fetchFile`) et les enregistrait avec `new Blob(parts)`, sans type : Chrome
   sur Android en fait du texte. Le PC envoie maintenant le type d'après l'extension (`LocalMessage.ContentTypeFor` : PDF,
@@ -563,7 +671,7 @@ bas niveau.
   - Sécurité : clé aléatoire dans l'adresse, code à 4 chiffres pour la saisie à la main, blocage d'une minute
     après 10 codes faux.
   - Le serveur s'arrête après 10 min sans requête ou si le PC quitte le réseau.
-  - `MdnsResponder` : publie `mynotch.local` (RFC 6762, maison). Testé : Windows le résout. **Non testé sur de
+  - `MdnsResponder` : publie `ilot.local` (RFC 6762, maison). Testé : Windows le résout. **Non testé sur de
     vrais téléphones Android / iPhone.**
   - `LocalPage` : page web autonome servie au téléphone ou autre PC (HTML/CSS/JS en ligne) sous forme de chat en direct et zone de dépôt (boutons Coller, Photo / Image, Fichiers, `Ctrl + V` global, glisser-déposer, long-polling `/chat/events?since=`).
   - **Chat et collage en direct** : bulle détachée redimensionnable sous la notch (`ShowBubble`, dimensions dans `LocalChatWidth` / `LocalChatHeight`), cartes `LocalMessageCard` avec animations implicites sur le compositeur. Les textes, liens et images collées (`POST /chat/text`, `POST /chat/image`, ou `Ctrl + V` / bouton « Coller » côté PC) s'affichent directement dans le fil avec aperçu et actions en 1 clic (Copier, Ouvrir, Enregistrer). Les images temporaires du chat vivent dans `%LOCALAPPDATA%\Ilot\LocalChat\` et sont nettoyées à la fin du partage.
@@ -630,6 +738,16 @@ Les résultats qui arrivent encore pour la recherche d'avant sont ignorés tant 
 
 ### Notes — récent, à éprouver
 `Modules/Notes/`.
+- **Texte jaune** (retour utilisateur, corrigé, jamais vu à l'écran) : RichEdit donne au texte nouveau le format du
+  caractère d'avant ; le rond d'une case (police Segoe Fluent Icons, gris `BoxInk` ou ambre `TickedInk`) le passait au
+  texte tapé ou collé à côté (curseur avant la case ou entre la case et son espace, sélection commençant par une case,
+  espace de la case qui héritait). `RichNoteEditor` : `KeepOffBox` (au changement de sélection, hors `Change` et
+  chargement) remet le curseur dans le texte de l'élément (← au début du texte : fin de la ligne d'avant) et donne au
+  format de frappe l'aspect texte ; `Mend(from, to)` parcourt les séquences de format (`TextRangeUnit.CharacterFormat`)
+  et rend l'aspect texte (`TextLook` : couleur du `Foreground` de l'éditeur, police du texte, le reste gardé) à tout
+  ce qui a l'aspect d'une case sans en être une (un rond en début de ligne). Appelé au chargement (avant
+  `ClearUndoRedoHistory` : rien à annuler), après un collage, et après la frappe sur le paragraphe du curseur
+  (différé ; `Edited` s'il a réparé quelque chose). L'espace d'une nouvelle case prend l'aspect texte (`AddBox`).
 - **Stockage** : `NotesService`, base `%LOCALAPPDATA%\Ilot\notes.db`, table
   `Notes(id, title, content, plain, created_at, updated_at)`.
   - `content` = **RTF** ; `plain` = texte brut pour les cartes, la recherche et les compteurs.
@@ -651,6 +769,11 @@ Les résultats qui arrivent encore pour la recherche d'avant sont ignorés tant 
   `NotesViewModel.Place`), le curseur où il était ; titre de la fenêtre : « Notes · titre », suivi. Un clic sur la carte
   d'une note détachée ramène sa fenêtre devant au lieu de l'ouvrir aussi dans la notch. « Rattacher » : la notch s'ouvre
   sur la note, le curseur au même endroit. Échap dans la fenêtre : la saisie est prise et écrite.
+  **Note gardée ouverte** (demande utilisateur : un clic ailleurs puis la notch rouverte, la note avait disparu) : la
+  notch qui se ferme ou l'onglet quitté ferment toujours la feuille (enregistrée, bulle rangée), mais `NotesView._kept`
+  garde son `NoteState` (`NoteSheet.Export`, le curseur compris ; pas pour une note vide, oubliée en se fermant) ; au
+  retour (`OnShownChanged`, après `LoadAsync`), `_sheet.Import` la rouvre si elle existe encore, qu'aucune autre n'est
+  ouverte et qu'elle n'est pas détachée. « Fermer » (`CloseSheet`) l'oublie. Testé : compilation seulement.
 - **Éditeur** : `Editor/RichNoteEditor.cs` (sous-classe de `RichEditBox`). Barre façon Word :
   - styles Texte / Titre / Titre 2 / Titre 3, taille en points ;
   - G / I / S / barré ;
@@ -844,8 +967,70 @@ lancée en administrateur ne laisse pas un crochet clavier ordinaire voir ses to
 **Les raccourcis s'effacent en plein écran** (nouveau, jamais vu à l'écran) : `GlobalShortcut.Take` laisse passer la
 touche (ni prise, ni action) quand `FullscreenWatcher.ForegroundIsFullscreen()` : l'app au premier plan remplit son
 propre écran (`MonitorFromWindow` + `GetMonitorInfo`, n'importe lequel, pas seulement celui de la notch ; mêmes règles
-que la notch cachée : fenêtre maximisée avec barre de titre, bureau, barre des tâches et Ilot exclus). Lu seulement
+que la notch cachée : fenêtre maximisée avec barre de titre ou bord redimensionnable, bureau, barre des tâches et Ilot exclus). Lu seulement
 quand la combinaison correspond (rien sur les autres touches). L'enregistrement d'un raccourci n'est pas concerné.
+
+### Plein écran : détection revue (nouveau, jamais vu à l'écran)
+Retours après deux semaines : la notch passait parfois devant une app plein écran, disparaissait derrière une simple
+fenêtre agrandie, ou passait derrière. `FullscreenWatcher` :
+- **Fenêtre agrandie** : `IsZoomed` avec `WS_CAPTION` **ou** `WS_THICKFRAME` n'est jamais plein écran. Avant, seule la
+  barre de titre complète comptait : Discord, Spotify, VS Code (barre de titre dessinée par l'app) agrandis sur un écran
+  sans barre des tâches, ou avec la barre masquée automatiquement, cachaient la notch.
+- **Fenêtre qui bouge sans arrêt** (certains jeux) : le délai de 150 ms se relançait à chaque mouvement et l'évaluation
+  n'arrivait jamais ; elle a lieu au plus tard 500 ms après le premier (`Schedule`).
+- **Travail sur un autre écran** : l'app plein écran de l'écran de la notch reste retenue (`_cover`) tant que le premier
+  plan est ailleurs (autre écran, ou Ilot lui-même) ; avant, cliquer sur le second écran faisait revenir la notch par
+  dessus la vidéo. Ses mouvements sont suivis aussi.
+- **Plein écran exclusif** : `SHQueryUserNotificationState` = `QUNS_RUNNING_D3D_FULL_SCREEN` sur l'écran de la notch
+  compte (la fenêtre du jeu peut ne pas avoir la taille de l'écran vu avant le changement de résolution). Changer `Screen`
+  (autre écran, autre résolution) relance une évaluation.
+- **Derrière** : `NotchWindow.StayOnTop` (`SetWindowPos(HWND_TOPMOST)` sans activer) à chaque changement de premier plan
+  (une app « toujours au premier plan » activée passait devant) et quand la notch réapparaît après un plein écran.
+Rien ne tourne en boucle : tout vient des événements déjà écoutés.
+
+### Menu de la notch, double-clic
+Le double-clic n'épingle plus la notch (`NotchView.OnDoubleTapped` et `NotchController.OnDoubleTapped` retirés) : on
+l'épinglait sans le vouloir. « Garder ouverte » reste dans le clic droit. Nouveau dans ce menu : « Paroles dans la barre
+des tâches » (`TaskbarLyricsMenuItem`), qui bascule `AppSettings.LyricsPlace` (et rallume `ShowLyrics` quand on coche) ;
+la liste des Paramètres suit (`SettingsWindow.OnSettingsChanged` → `LyricsPlaceBox`).
+
+### Révisions : formules, parties de la fiche (nouveau, jamais vu à l'écran)
+- **Formules** : la fiche affichait le LaTeX brut de Gemini (« $\frac{n(A)_0}{a}…$ »), coupé à droite. `StudyMath`
+  (pur, testé hors interface) trouve les formules (`$…$`, `$$…$$`, `\(…\)`, `\[…\]` ; un « $ » de prix reste du texte),
+  les lit en arbre (fractions, racines, indices, exposants, `\left…\right`, accents, `\text`, `\ce` pour la chimie,
+  plusieurs lignes) et sait les écrire en une ligne Unicode (`Plain`, pour les pastilles et les noms d'accessibilité).
+  `StudyMathView` les dessine en Cambria : chaque morceau coupé à ses capitales et sa ligne de base
+  (`TextLineBounds.Tight`), centré sur la ligne, et ce qui dépasse en haut est compensé en bas : les lignes de base
+  s'alignent sans mesurer de glyphe. Seules les fractions mesurent leurs deux moitiés (pour poser la barre au milieu).
+  Une formule haute (fraction, racine, somme…) va sur sa ligne (`Plate` : `Viewbox` qui réduit seulement) ; une
+  courte reste dans le texte en runs (caractères d'indice Unicode quand ils existent tous, sinon plus petite).
+  Branché dans `StudySheet.Words`, `ReviewView.ShowText` (question, réponse ; `QuestionMath`/`AnswerMath`), les choix du
+  QCM, `CourseSheet.CardText` ; `Plain` pour les pastilles et les cartes mentales (`MindMap.Tidy`).
+  `StudyMath.Repair` remet les antislashs mangés par l'échappement JSON (« \frac » → saut de page + « rac », « \times »
+  → tabulation + « imes », « \neq » → retour à la ligne + « eq » dans une formule).
+  Prompts : `StudyGenerator.FormulaRules` (fiche et cartes) demande du LaTeX standard entre dollars, une formule
+  importante seule sur sa puce (« - **Nom** : $$…$$ ») ; les cartes mentales restent en Unicode.
+- **Parties** : un cours avait des parties « Résumé du cours » (deux fois) et « Introduction et sommaire », chacune
+  résumée. Le prompt du plan exclut page de titre, sommaire, objectifs, bibliographie, récapitulatifs, demande des titres
+  par sujet et jamais deux fois le même ; `StudyChapters.Contents` filtre derrière (titres de ce genre, doublons fusionnés
+  avec leurs pages), pour le plan comme pour les parties tirées de la fiche. Le prompt de la fiche interdit aussi ces
+  contenus.
+  - **Le cours du bug** (« CM1 Réseaux », Mif05, Lyon 1, fourni par l'utilisateur) : diapos 1 à 10 administratives
+    (équipe, organisation, évaluation, QCM, planning, prérequis, bibliographie), diapos « Plan » répétées (12, 14, 22, 28,
+    43, 46, 54, 59). `StudyChapters.IsPractical` retire une partie dont le titre n'est fait que de mots d'informations
+    pratiques (`Practical`, les mots de liaison à part : « Organisation de l'UE », « Planning des CM », « Modalités
+    d'évaluation ») ; « Organisation de la cellule » ou « Contrôle de congestion TCP » restent. La règle « Introduction
+    seule retirée » a été enlevée : dans ce cours, l'introduction (diapos 11 à 31 : commutation de paquets, délais,
+    couches) est du vrai contenu. Prompts : informations pratiques et diapositives « Plan » exclues ; une introduction
+    qui enseigne se nomme par son sujet.
+  - Formules (même passe) : un dénominateur de plus d'un facteur prend des parenthèses en ligne (« 7L/(5C) ») ; les
+    indices de plusieurs lettres restent « _prop » (« dₚᵣₒₚ » se lisait mal, et jurait avec « d_proc »).
+  - Tests : `scratchpad/mathtest` (57 vérifications, dont le plan de CM1 tel que Notch l'a pu rendre et ses formules).
+- **Refaire la fiche** : `StudyViewModel.RewriteSheetAsync` (bouton à côté de « Copier », deux clics) : filtre les
+  parties, vide la fiche, relance `MakeAsync` (seule la fiche manque) ; en cas d'échec, l'ancienne fiche et ses parties
+  reviennent.
+- Test : `scratchpad/mathtest` (33 vérifications : la formule du retour utilisateur, indices, racines, chimie, argent,
+  JSON réparé, parties).
 
 ### Assistant — nouveau, jamais vu à l'écran
 `Modules/Assistant/`. Module **sans onglet** (comme la recherche : `AssistantModule.Bar` 660 × 60), ouvert par un clic
@@ -939,6 +1124,275 @@ sur la mascotte (`MascotView.Clicked` → `INotchModule.OpenFromMascot`) ou `Ass
   paramètres reste le premier, mais s'il ne peut pas répondre (surcharge, quota), les autres répondent à sa place.
 - **Clé** (`ApiKeyStore`) : Gestionnaire d'identification de Windows (`CredWrite` / `CredRead`, cible
   `MyNotch/Gemini`), vérifiée auprès de Google avant d'être gardée (paramètres → Assistant).
+- **Capture d'écran et outils** (nouveau, jamais vu à l'écran ni contre le vrai Google) :
+  - `ScreenCaptureService` : l'écran de la notch (`Window`, posé par `AssistantView.Open`), copié par GDI (`BitBlt`
+    `SRCCOPY | CAPTUREBLT` d'un DC mémoire, `GetDIBits` 32 bits de haut en bas, alpha forcé à 255), la notch retirée
+    par `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` le temps de la copie seulement (60 ms pour que DWM recompose,
+    puis `WDA_NONE`) ; `ChatImage.FromPixelsAsync` passe par un BMP en mémoire puis le même chemin qu'une image collée
+    (1 600 px, PNG ou JPEG > 2,5 Mo). Bouton `CaptureButton` (glyphe E722) et Ctrl + Maj + S dans la barre ; caché
+    pendant la voix.
+  - `GeminiClient.ChatAsync` (remplace `StreamAsync`) : rend des `GeminiChunk` (texte, `GeminiCall`, parties brutes) ;
+    `tools: [{functionDeclarations}]` ; `answerOnly` → `toolConfig.functionCallingConfig.mode = NONE` (outils toujours
+    déclarés : l'historique contient des appels). `GeminiTurn.Parts` = parties envoyées telles quelles. Les parties du
+    modèle sont rendues **telles que reçues** (Gemini 3 vérifie ses `thoughtSignature`), les textes consécutifs sans
+    autre clé fusionnés (`AssistantConversation.Keep`). `MALFORMED_FUNCTION_CALL` → message.
+  - `AssistantConversation.StreamAsync` : boucle d'au plus 8 tours (`MostRounds`, le 9ᵉ en `answerOnly`) ; tour avec
+    appels → tour `model` (ses parties) + tour `user` (`functionResponse` {name, response, id si donné}, puis
+    `inlineData` des captures). Chaque appel = un `ChatMessage` avec `Action` (`AssistantAction` : libellé, glyphe,
+    `Detail`, `ActionState`, `Outcome`, `Image`), inséré avant la réponse ; ni rendu à Gemini aux questions suivantes
+    ni gardé dans l'historique (`Remember`, la voix non plus). Accord : `AssistantAction.AskAsync` / `Decide` (boutons
+    « Autoriser » / « Refuser » de la goutte, `AllowFocusOnInteraction = false`), annulé par « Nouvelle conversation ».
+    Refus → `{"error": "The user declined…"}`. Après un outil, plus de repli sur un autre modèle (`_acted` : il
+    agirait deux fois). 400 avec outils : « function » / « tool » dans le message ou pas de réflexion réglée → sans
+    outils (`_noTools`), sinon sans réflexion (`_thinksItsWay`). Consignes : un paragraphe de plus quand les outils
+    sont offerts.
+  - `AssistantTools` (`IAssistantTools`, déclaré dans `App`) : `Plan(name, args)` → `ToolPlan` (libellé, glyphe,
+    `Confirm`, `Detail`, `Refusal`, `Run`). Déclarations en anglais (pour le modèle), `capture_screen` sans
+    `parameters` (Google refuse un objet vide). Ouvrir : http(s) → accord ; `ms-settings:` → direct ; dossier,
+    document (`Harmless` : pdf, office, images, sons, vidéos, archives) → direct ; autre fichier (exe, bat, js, ps1…)
+    → accord ; `in_vscode` → `CodeService.OpenPath` (Code.exe, jamais `cmd`) ; sinon appli du menu Démarrer par
+    `FuzzyMatch` (≥ 0,5). Presse-papier : `SystemClipboard.ReadAsync` (`CapturedText` seulement, 8 000 caractères ;
+    les copies privées jamais lues) / `WriteTextAsync`. Fichiers : `EverythingEngine.WithExclusions` (partagé avec la
+    barre Ctrl + Q, sortie identique) + `SearchAsync`, 20 au plus.
+  - `ShellCommands` : `Parse` (refus de `& | < > ^ ; \` $( ` et des retours à la ligne, guillemets gérés, nom de programme
+    seul, règles par programme : sous-commandes et options permises, pas de `/s /u /p`, pas de `ping -t`, pas
+    d'intervalle à `netstat`, git en lecture seule sans `-c` / `--output` / `--exec`…), System32 ou PATH (.exe
+    seulement : un .cmd passerait par le shell), `RunAsync` (sans shell, `ArgumentList`, stdin fermé, 20 s puis
+    `Kill(entireProcessTree)`, 64 Ko lus, 6 000 rendus, page de code OEM ou UTF-8 pour git / winget,
+    `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`).
+  - Réglage `AppSettings.AssistantActions` (oui par défaut ; « Laisser Notch agir sur le PC »).
+    `AppSettings.AssistantRunCommandsDirectly` (non par défaut ; « Lancer les commandes sans demander ») :
+    `AssistantTools.Command` → `Confirm = false` ; pages web, programmes et scripts demandent toujours (fuite par une
+    adresse, exécution d'un fichier téléchargé) ; la liste blanche reste la même.
+    `AssistantHistory` accepte une `DispatcherQueue` nulle (tests : enregistré aussitôt).
+  - **Voix** (demande utilisateur : « en vocal il n'exécute pas les commandes ») : `GeminiLive.ConnectAsync(…, tools, …)`
+    → `setup.tools`; message `toolCall.functionCalls` → `ToolCalled` (`GeminiLive.ToolCalls`), `toolCallCancellation.ids`
+    → `ToolsCancelled`; `Respond` → `toolResponse.functionResponses` {id, name, response} ; `Show` →
+    `realtimeInput.video` (JPEG, `ChatImage.JpegAsync`). `AssistantVoice.ActAsync` (sur le fil UI) : chaque appel par
+    `AssistantConversation.ActAsync` (qui clôt la phrase en cours, `EndVoiceTurn`, puis la ligne d'action en dernier :
+    l'ordre réel), la capture envoyée en image avant la réponse, une seule `toolResponse` ; un appel abandonné par
+    Google ou la fin de la conversation (`_acting`, `_calls` par id) l'annule (« Annulé », pas de réponse).
+    Installation refusée avec les outils → même modèle relancé sans (`_noTools`, ligne `[Voice] … refused its setup
+    with the tools` dans errors.log). Bouton capture actif pendant la voix : `AssistantVoice.ShowScreenAsync` (ligne
+    `AssistantConversation.Showed` + image). Une action qui attend l'accord, notch fermée : `AssistantView` rouvre la
+    barre. `GeminiLive.Address` est un champ statique (les tests le pointent sur un faux serveur local).
+    **Toujours autoriser** (demande utilisateur : « qu'il se souvienne des choix ») : `ToolPlan.Remember` = la clé
+    gardée (`web:<site sans www.>`, `open:<chemin complet en minuscules>`, `command:<programme>` ; rien pour ce qui ne
+    demande jamais) ; `AppSettings.AssistantAllowed` (liste remplacée entière, enregistrée) ; `AssistantConversation.RunAsync`
+    ne demande pas si la clé y est, et l'ajoute sur `Decide(true, always: true)`. Goutte : « Autoriser » (couleur de la
+    mascotte), « Toujours autoriser » (info-bulle : ce qui est retenu), « Refuser » ; `AssistantPanel.Choice` règle les
+    `ButtonBackground*` / `ButtonForeground*` / `ButtonBorderBrush*` du bouton (un `Background` seul cède au thème au
+    survol) et choisit des mots noirs si la couleur est claire (luminance > 0,4 : la mascotte blanche donnait un bouton
+    blanc aux mots blancs, capture utilisateur). Paramètres → Assistant → « Toujours autorisé » (`ShowAllowed`, une
+    croix par ligne, `AssistantTools.Describe`). Testé : clés (site sans www., chemin, programme, rien pour un
+    document), « Toujours » gardé une fois, la même commande ensuite sans question (187 vérifications au total).
+    Pilule pendant la voix (capture utilisateur : notch fermée de 200 px, vide sauf l'orbe à droite) : la présence
+    `Active` sans largeur gardait `Collapsed.Width` ; `AssistantView` demande maintenant `RequestCompactWidth(Collapsed.Height)`
+    pendant la voix (pilule ronde, l'orbe centrée puisqu'elle se place à `i` du bord droit), `null` après. La plus
+    large demandée gagne (`NotchView.SetCompactWidth`) : la ligne chantée de la musique garde sa place.
+    **Sortie des commandes affichée** (demande utilisateur : « liste-moi les ports ouverts » à la voix, la commande
+    tournait sans rien montrer) : seul « Code de sortie 0 » s'affichait, et à la voix sans demande d'accord la barre ne
+    s'ouvrait pas. `ShellResult.Whole` garde tout ce qui est lu (64 Ko ; `Output` reste coupé à 6 000 pour Gemini) ;
+    `ToolOutcome.Shown` → `AssistantAction.Output` (posé par `AssistantConversation.RunAsync`) ; `AssistantPanel.Terminal`
+    l'affiche sous la ligne de l'action (Cascadia Mono 11,5, lignes entières `NoWrap`, `ScrollViewer` à défilement
+    horizontal et vertical, 210 px au plus) avec un bouton copier (`CopyButton`, partagé avec la réponse) ;
+    `AssistantView` rouvre la barre pendant la voix quand une action terminée a une sortie (comme pour une demande
+    d'accord). La réponse de l'outil porte `shown_to_user` : Gemini dit l'essentiel au lieu de tout relire (à voix
+    haute, 460 lignes de `netstat -an`). L'historique ne garde toujours pas les actions. Testé : `netstat -an` réel
+    (29 Ko gardés, 6 000 rendus), l'outil réel `hostname` (sortie à montrer + `shown_to_user`), la sortie posée sur
+    l'action (191 vérifications au total). Pas testé : l'affichage.
+    **Interrompre** (demande utilisateur : « quand il parle ou est en réflexion je veux pouvoir l'arrêter proprement ») :
+    bouton `StopButton` dans la barre (`AssistantView.xaml`, à gauche de « Échap », visible seulement si
+    `AssistantView.Stoppable` : `AssistantVoice.IsAnswering` (Thinking / Speaking) pendant la voix, sinon
+    `AssistantConversation.IsAnswering` (occupé et Thinking / Talking) ; `ShowStoppable` sur les deux `StateChanged`) ;
+    Échap l'utilise d'abord (après l'historique, avant la fin de la voix ou la fermeture). Écrit :
+    `AssistantConversation.Stop` (annule `_answering`, la réponse `_writing` reste avec son texte, `Stopped = true`,
+    état `Idle`, gardée dans l'historique) ; `Write` et `RunAsync` vérifient l'annulation avant de prendre un morceau ou
+    de montrer un outil ; un outil en attente passe « Annulé ». `ChatMessage.Stopped` → `AssistantPanel.StoppedMark`
+    (glyphe E71A, « Interrompu », à côté du bouton copier, ou seul si rien n'était écrit). `AssistantConversation.Said`
+    (écrit et voix) : une réponse vide (arrêtée avant son premier mot) n'est jamais envoyée à Gemini. Voix :
+    `AssistantVoice.Interrupt` coupe le haut-parleur (`Hush`), passe `_dropping` (son et texte de la réponse jetés par
+    `Dropped()`), annule les outils de `_calls`, `conversation.StopVoiceTurn(speaking)` puis `Listening` ; le micro
+    reste ouvert. Le Live API n'a pas de message « annuler » : la génération continue chez Google et est jetée ici.
+    `_dropping` retombe à `turnComplete` (ce tour-là n'est pas clos une seconde fois), à `interrupted` (l'utilisateur
+    reparle par-dessus), ou quand l'utilisateur reparle sans qu'aucun morceau n'ait été jeté depuis 1 s (`StillComing` :
+    Gemini n'avait pas pris le bruit pour une question). Un appel d'outil arrêté, ou reçu pendant `_dropping`, n'est pas
+    exécuté : Gemini reçoit `{"error": "The user stopped you… wait for them to speak."}` (il attend la réponse de
+    l'outil). Testé (210 vérifications) : arrêt pendant l'écriture (texte gardé, plus un mot, historique, question
+    suivante avec le texte partiel), avant le premier mot (pas de tour vide), pendant une demande d'accord (« Annulé »,
+    rien d'exécuté, plus de requête) ; voix sans micro (champs posés par réflexion, faux serveur Live) : `Interrupt`
+    pendant une demande d'accord (annulée, Gemini prévenu avec l'id), appel suivant non exécuté, rien à arrêter en
+    écoute ; `StopVoiceTurn`. Pas testés : le vrai son coupé, le câblage de `Start` (micro), le vrai Live API, l'affichage.
+    **Créer un dossier / un fichier texte** (demande utilisateur) : outils `create_folder` (`path`) et `create_text_file`
+    (`path`, `content`) dans `AssistantTools` (`CreateFolder`, `CreateTextFile`) : toujours `Confirm`, jamais `Remember`
+    (même avec « Lancer les commandes sans demander ») ; `Detail` = chemin complet (+ `CreationPlaces.Preview` du texte :
+    10 lignes / 500 caractères). Dossier : `Directory.CreateDirectory` (parents compris), déjà là → réussite « Existe
+    déjà » sans rien toucher, un fichier du même nom → échec. Fichier : .txt ajouté sans extension, seulement
+    .txt / .md / .csv, 100 000 caractères au plus, `FileMode.CreateNew` (jamais remplacé), UTF-8 sans BOM (avec pour
+    .csv, pour Excel). `CreationPlaces` (nouveau) : `Resolve` (chemin complet, `~`, `%VAR%`, ou premier élément nommé :
+    Desktop/Bureau, Documents, Downloads/Téléchargements (`SHGetKnownFolderPath`, `NativeMethods.KnownFolders.cs`,
+    repli `<profil>\Downloads`), Pictures/Images, Music/Musique, Videos/Vidéos, Home ; `GetFullPath` résout les `..`)
+    puis `Check` : disque local fixe ou amovible (pas d'UNC), pas la racine, noms valables (caractères, point ou espace
+    final, CON/NUL/COM1…), 259 caractères au plus, hors Windows / Program Files (x86) / ProgramData / AppData
+    (Roaming, Local, `<profil>\AppData`) / `$Recycle.Bin` / `System Volume Information`, et sur le disque système
+    seulement dans le profil ; les jonctions et liens symboliques existants du chemin sont suivis
+    (`Directory.ResolveLinkTarget`) et la destination jugée aussi. Revérifié au moment de créer. `ToolOutcome.Opens`
+    → `AssistantAction.Opens` → bouton « Ouvrir » (`AssistantPanel.OpenButton`, E8DA, info-bulle = chemin). Consignes
+    (`ToolInstructions`) et texte du réglage « Laisser Notch agir sur le PC » mis à jour (FR + EN). Testé (246
+    vérifications) : `CreationPlaces.Current` remplacé par un faux profil dans le scratchpad (rien créé dans les vrais
+    dossiers) : noms résolus, 17 chemins refusés (dont `..` qui sort, une jonction vers un dossier interdit, `a:b`),
+    création réelle du dossier (puis laissé tel quel), du fichier (contenu exact, pas de BOM ; .csv avec BOM ; jamais
+    remplacé), programmes et texte trop long refusés. Pas testés : l'affichage, le vrai Gemini.
+    **Copier / déplacer / renommer** (demande utilisateur) : outils `copy_item` et `move_item` (`source`,
+    `destination_folder`, `new_name` facultatif ; renommer = `move_item` dans le même dossier), `AssistantTools.Transfer` :
+    toujours `Confirm`, jamais `Remember`, `Detail` = « source\n→ destination ». `CreationPlaces.Locate` (la résolution
+    des chemins, sortie de `Resolve` qui fait maintenant `Locate` + `Check`) ; source : copie depuis n'importe où sur un
+    disque local (pas une racine), déplacement seulement si `CreationPlaces.Movable` (= `Check` + ni le profil ni un
+    dossier connu, ni un dossier qui en contient un) ; arrivée : `Check(dossier\nom)`, pas dans la source, `new_name`
+    sans `\` ni caractère interdit. Revérifié au moment de faire ; dossier d'arrivée créé si absent, retiré s'il est
+    resté vide après un échec ou une interruption. `FileTransfer` (nouveau, sur le pool de threads) : `Ready` (source
+    là, arrivée absente, pas dans elle-même), place libre (taille + 200 Mo), copie récursive sans suivre les points
+    d'analyse (jonctions, liens), `File.Copy(overwrite: false)`, annulation entre fichiers ; échec ou arrêt → ce que
+    la copie a créé est supprimé (seulement l'arrivée, qui n'existait pas). Déplacement : même disque →
+    `Directory.Move` / `File.Move` ; autre disque → refusé si le dossier contient des liens, sinon copie, contrôle
+    (`Measure` : nombre et taille identiques) puis suppression de l'original (une erreur à ce moment est dite telle
+    quelle). Résultat : `files`, `bytes`, note « 2 fichiers · 11 o » (`FileTransfer.Size`), « Ouvrir ». Consignes et
+    texte du réglage mis à jour (FR + EN). Testé (266 vérifications, faux profil du scratchpad) : copie complète,
+    jamais par-dessus, sous un autre nom, pas dans elle-même, lien non suivi, arrêt sans reste ; déplacement d'un
+    fichier, renommage, dossier vers un dossier neuf, jamais par-dessus, jamais les dossiers de l'utilisateur, ni depuis
+    ni vers Windows. **Pas testé : le déplacement vers un autre disque** (copie + suppression ; aucun second disque de
+    test sans toucher aux données de l'utilisateur), l'affichage, le vrai Gemini.
+    **Toujours autoriser + journal + retour en arrière** (demande utilisateur : « c'est chiant de tout le temps devoir
+    accepter déplacer ou copier… juste pour supprimer on demande tout le temps l'autorisation… traçabilité… CTRL Z ») :
+    `Remember` = `files:create` (dossier, fichier texte), `files:copy`, `files:move` (déplacer, renommer), un par
+    genre ; `AssistantTools.Scope` / `Describe` les disent en mots. Pas d'outil de suppression (règle utilisateur : une
+    suppression demanderait toujours, sans `Remember`). `FileJournal` (nouveau, singleton dans `App`,
+    `%LOCALAPPDATA%\Ilot\assistant-files.json`, 200 entrées, écrit à chaque fois par fichier temporaire) :
+    `FileEntry` (id, date, `FileChange` Folder/File/Copy/Move, `From`, `To`, `Undone`) ajouté par chaque outil qui
+    réussit (paramètre facultatif `journal` d'`AssistantTools` et d'`AssistantConversation` : les tests s'en passent) ;
+    `ToolOutcome.Entry` → `AssistantAction.Entry`. `UndoAsync` : un déplacement → `FileTransfer.MoveAsync` en sens
+    inverse (refusé si l'ancienne place est prise) ; le reste → Corbeille (`NativeMethods.Recycle`,
+    `SHFileOperationW` FO_DELETE avec FOF_ALLOWUNDO | NOCONFIRMATION | SILENT | NOERRORUI | WANTNUKEWARNING : Windows
+    demande avant de détruire ce qui ne tient pas dans la Corbeille ; refusé sur un disque non fixe, sans Corbeille).
+    Interface : bouton « Revenir en arrière » (E7A7) à côté de l'action terminée (`AssistantPanel.UndoRequested` →
+    `AssistantConversation.UndoAsync`, la ligne passe en `ActionState.Undone`) ; Ctrl + Z dans la barre quand la
+    question est vide (`UndoLastAsync` : le dernier depuis le lancement, `FileJournal.LastOfThisRun`) ; Paramètres →
+    Assistant → « Ce que Notch a fait sur vos fichiers » (`ShowJournal`, 30 lignes, date, quoi, bouton ou « Revenu en
+    arrière », suit `FileJournal.Changed`). Libellé « Revenir en arrière » (EN « Undo ») et non « Annuler » (déjà
+    traduit « Cancel »). Testé (280 vérifications, faux profil, Corbeille simulée : rien dans la vraie) : clés par
+    genre, copie et déplacement autorisés pour de bon sans question, création toujours demandée sans clé, journal
+    écrit et relu (le plus récent d'abord), Ctrl + Z remet le déplacement, retour en arrière d'une copie, rien deux
+    fois, « n'est plus là », place reprise refusée sans rien bouger. Pas testés : la vraie Corbeille, l'affichage.
+    **Fermer des fenêtres** (demande utilisateur : « ferme tous les explorateurs », « ferme le VS Code avec Ilot ») :
+    outils `list_windows` (sans paramètre, sans accord : id = handle en décimal, titre, programme, nom de l'appli ;
+    60 au plus) et `close_windows` (`window_ids`, `app`, `title_contains` ; tout ce qui est donné doit correspondre),
+    `Confirm` + `Remember = windows:close`, `Detail` = « • titre — appli » (12 au plus, « … et N autres »).
+    `OpenWindows` (nouveau) : `List` (`EnumWindows` : visible, sans propriétaire, pas `WS_EX_TOOLWINDOW`, pas masquée
+    par DWM (`DWMWA_CLOAKED` : autre bureau virtuel, appli suspendue), titrée ; jamais les classes du shell (Progman,
+    WorkerW, barres des tâches, CoreWindow), ni les processus de Windows (`Shell` : csrss, dwm, LockApp, menu
+    Démarrer, recherche…), ni Ilot (`Environment.ProcessId`) ; d'explorer.exe seulement `CabinetWClass` (dossiers) ;
+    le programme lu par `ProcessPath` (PROCESS_QUERY_LIMITED_INFORMATION), son nom par `FileVersionInfo`, mis en
+    cache). `Match` (ids ; app = nom du programme sans .exe, alias « explorateur… » → dossiers, ou contenu du nom
+    replié ; mots du titre repliés). `CloseAsync` : relu juste avant (même handle, même processus), `PostMessage(WM_CLOSE)`
+    (comme la croix ; un processus plus élevé refuse, UIPI), puis 2 s d'attente : celles encore là sont rendues
+    (`still_open` pour Gemini, `Shown` sous l'action, la barre s'ouvre à la voix). Jamais de `Kill`. Interop :
+    `NativeMethods.Windows.cs`. Testé (293 vérifications) : correspondances sur des fenêtres inventées, la vraie
+    liste (lecture seule : ni ce processus ni le shell), puis deux fenêtres du test lui-même (`assistanttest --window`,
+    hors écran, `WS_EX_NOACTIVATE`, titre unique ; l'une ferme sur WM_CLOSE, l'autre refuse) : la première fermée,
+    la seconde dite « encore ouverte », rien de forcé. Pas testés : de vraies applis (Explorateur, VS Code), le vrai Gemini.
+    **Supprimer + coche sur la notch fermée** (demande utilisateur : supprimer « avec bien sûr autorisation
+    toujours » ; « quand il est en mode petit… une sorte de check… dossier copié, fichier supprimé ») : outil
+    `delete_item` (`path`), `AssistantTools.Delete` : `Confirm` et **jamais de `Remember`** (donc jamais « Toujours
+    autoriser », quels que soient `AssistantAllowed` et `AssistantRunCommandsDirectly`) ; refusé si introuvable, si
+    `CreationPlaces.Movable` refuse (dossiers de l'utilisateur eux-mêmes, Windows…), ou si le disque n'est pas fixe
+    (pas de Corbeille) ; revérifié au moment de faire. `FileJournal.DeleteAsync` → `Recycle` (Corbeille, Windows
+    demande avant de détruire ce qui n'y tient pas), vérifie que c'est parti, note `FileChange.Delete` ;
+    `FileEntry.CanUndo` faux pour une suppression (pas de bouton, pas de Ctrl + Z, « À la Corbeille » dans le journal ;
+    `UndoAsync` dit de restaurer depuis la Corbeille). Consignes et réglage mis à jour (FR + EN) : supprimer seulement
+    sur demande claire. Coche : `ToolOutcome.Said` → `AssistantAction.Said` (« Dossier copié / déplacé », « Fichier
+    copié / déplacé / supprimé », « Renommé », « Dossier / Fichier créé », « Ouvert : X », « N fenêtres fermées »,
+    « Copié dans le presse-papier », « Commande terminée ») ; `AssistantView.AnnounceDone` sur `Changed` : une fois
+    par action terminée (`Announced`), `NotchContext.Announce(E73E, Said, vert #5BD68A)`, ignoré par la notch quand
+    elle est ouverte ; un retour en arrière aussi (E7A7). Testé (300 vérifications) : suppression demandée même avec
+    tout autorisé (dont des clés « files:delete » / « delete » inventées) et « Toujours » qui ne garde rien, refus
+    (dossiers de l'utilisateur, Windows, absent), fichier et dossier mis à la Corbeille simulée, journal, pas de retour
+    en arrière ; textes des coches. Pas testés : la vraie Corbeille, la coche à l'écran.
+    **Premier plan** (demande utilisateur : « lance le dossier téléchargement… il est en arrière-plan ») : Windows ne
+    laisse donner le premier plan qu'à l'appli active ; notch fermée (voix), Ilot ne l'est pas, ce qu'il lançait
+    restait derrière. `AssistantTools.Launch` (async) : `OpenWindows.Snapshot()` avant, `AllowSetForegroundWindow(ASFW_ANY)`,
+    `Process.Start`, puis `OpenWindows.FrontAfterLaunchAsync` (toutes les 100 ms, 8 s au plus : la première fenêtre
+    nouvelle, du même processus si connu ; après 1,5 s sans nouvelle, une fenêtre existante dont le titre ou l'appli
+    contient l'indice (nom de l'appli, du dossier, « Paramètres »), sinon la fenêtre de devant du programme donné : le
+    navigateur par défaut (`DefaultBrowser`, registre `UrlAssociations\https\UserChoice` → `shell\open\command`, lecture
+    seule) pour une page) et `BringToFront` : restaurée si réduite, `SetForegroundWindow`, sinon `AttachThreadInput` avec
+    le fil de la fenêtre active + `BringWindowToTop` + `SetForegroundWindow` (comme la notch prend le clavier), sinon
+    `SwitchToThisWindow` (comme Alt + Tab) ; **aucune touche simulée**. VS Code (`in_vscode`) pareil (indice = nom du
+    dossier, pas de repli sur une autre fenêtre de Code). Réponse : `in_front`. Outil `focus_window` (`window_id`, `app`,
+    `title_contains`, la première correspondance dans l'ordre de l'écran), sans accord, coche « Au premier plan : appli ».
+    Consignes : « ce que tu ouvres passe devant ». Testé (302) : refus de `focus_window`, liste des outils ; **pas testé
+    le passage au premier plan lui-même** (il prendrait le focus sur l'écran de l'utilisateur pendant les tests).
+    **Couper le micro sans arrêter la conversation** (demande utilisateur : quelqu'un lui parle pendant que Notch
+    réfléchit) : `AssistantVoice.SetMuted` / `ToggleMute` / `IsMuted` / `MutedChanged` : coupé, le `Microphone` est
+    fermé (Dispose : l'indicateur de Windows s'éteint) et `GeminiLive.EndAudio` envoie `realtimeInput.audioStreamEnd`
+    (Google prend ce qui a été dit comme fini, la réponse vient) ; rétabli, un nouveau `Microphone` (`Listen`, câblage
+    sorti de `Start`) ; s'il ne s'ouvre pas, la conversation finit avec un message. Seulement connecté ; `End` remet
+    à zéro. Le minuteur des états ne dépend plus du micro (niveau 0 coupé). Interface : bouton `MicButton` (E720 /
+    F781 barré en rouge, vérifiés dans la police) dans la barre pendant la voix, touche M (la question est en lecture
+    seule pendant la voix), indice « Micro coupé : je n'entends plus rien », annonce sur la notch fermée.
+    `MicrophoneShortcut` (nouveau, `GlobalShortcut` : `Update` passe `protected`) : Ctrl + Alt + M fixe, actif
+    seulement quand `voice.IsOn` (crochet clavier posé à `StateChanged`, retiré après : la touche reste aux applis le
+    reste du temps ; ignoré en plein écran comme les autres raccourcis), créé avec `AssistantModule`. Testé (307) :
+    pas de crochet hors conversation, rien à couper hors conversation, coupé → `audioStreamEnd` reçu par un faux
+    serveur Live, la tâche continue (état Thinking), dit une fois. Le micro n'est jamais ouvert par les tests (le
+    rétablir n'est pas testé), ni le raccourci posé.
+    **Autorisation invisible pendant la voix** (rapport utilisateur : « supprime plateforme streaming.txt… la notch ne
+    s'ouvre pas pour me dire autoriser… juste un blanc ») : deux causes. (1) La barre s'ouvrait en prenant le clavier ;
+    l'utilisateur dans une autre appli, Windows peut le refuser, `NotchWindow.RetryKeyboard` abandonne et
+    `OnKeyboardLost` referme la barre : rien de visible. Pendant la voix, `AssistantView.OpenForAttention` ouvre sans le
+    clavier (`ShowConversation` dépend maintenant de `_open`, plus de `_keyboard`), et `NotchContext.HoldOpen` la garde
+    ouverte tant qu'une action attend (`ShowWaiting` : relâchée dès qu'aucune n'est en `Asking`). `ShowWaiting` met
+    aussi une activité « Autorisation demandée » (E8D7, ambre) sur la notch fermée tant qu'on attend. (2) Un nom de
+    fichier seul était refusé d'emblée (« Dites où… ») sans rien montrer : `PathHelp` dit maintenant à Gemini de le
+    chercher d'abord avec `search_files`, une action en échec s'annonce en rouge (« Pas fait : … », `AnnounceDone`),
+    et les consignes lui disent de dire pourquoi ça n'a pas marché, et de faire cliquer « Autoriser ». Pas testé :
+    l'affichage (la notch qui s'ouvre et reste ouverte), le vrai Gemini.
+    **Commandes sous la mascotte** (capture utilisateur : « directement au niveau du petit personnage… un bouton
+    interrompre et un bouton micro… pas caché en haut, c'est pas beau ») : `MicButton` et `StopButton` retirés de la
+    barre (`AssistantView.xaml`). Dans la goutte (`AssistantPanel.xaml`), sous la mascotte, une rangée : `MicButton`
+    rond (E720 / F781 rouge #FF9A90, voix seulement), la pilule `TalkPill` (« Parler » E720 / « Arrêter » avec E778
+    raccrocher : le carré E71A est à interrompre), `InterruptButton` rond (E71A, tant qu'il répond, à l'écrit comme à
+    la voix). `AssistantPanel.ShowControls(talking, muted, stoppable, tip)`, `Round` (couleurs par état de bouton),
+    événements `MuteRequested` / `InterruptRequested` ; leurs clics ne lancent ni n'arrêtent la voix (`Tapped`
+    géré, et `Stage.Tapped` ignore ce qui vient d'eux, `Within`). `AssistantView.ShowControls` remplace l'ancien
+    affichage ; M, Échap et Ctrl + Alt + M inchangés. Retour utilisateur (« le bouton mute est trop petit ») : rangée
+    de 38 px (marge basse 4 : elle tient sous la mascotte, 134 → 172 sur 176), micro et interrompre ronds de 38
+    (glyphes 16 et 13), espacés de 10 ; pendant la voix, la pilule devient le bouton rond rouge « raccrocher » de 38
+    (#E5484D, E778 blanc, sans texte, info-bulle « Arrêter la conversation » ; `AssistantPanel.ShowPill`) ; hors voix,
+    la pilule « Parler » reste comme avant.
+    **Dossier Téléchargements de Public, captures en boucle** (rapport utilisateur, conversation du 17/11 : « ouvre mon
+    dossier téléchargement » → « J'ai ouvert le dossier des téléchargements publics ») : `open_file_or_app` n'acceptait
+    qu'un chemin complet ; Gemini, sans le nom d'utilisateur, devinait `C:\Users\Public\Downloads`. `AssistantTools.Open`
+    passe maintenant un nom relatif par `CreationPlaces.Locate` (Downloads / Téléchargements, Documents, Bureau… :
+    les vrais dossiers, `SHGetKnownFolderPath`), et la déclaration lui interdit de deviner un `C:\Users\…`. Captures en
+    boucle (l'image arrive en `realtimeInput.video`, à part de la réponse de l'outil : le modèle recommençait) :
+    `AssistantConversation.ActAsync` refuse une seconde `capture_screen` tant que l'utilisateur n'a pas reparlé
+    (`_voiceCaptures`, remis à zéro par `HearUser`), avec « already captured… use that picture ». Les actions ne sont
+    pas dans l'historique (seulement ce qui est dit) : le détail des captures n'a pas pu être relu. Testé (310) :
+    « Téléchargements » et « Documents\Factures 2026 » mènent aux dossiers de l'utilisateur (prévus, jamais ouverts),
+    une capture par demande, de nouveau après une parole.
+    Testé (assistanttest, 177 vérifications au total) : faux serveur Live en WebSocket sur 127.0.0.1 (clé en en-tête,
+    outils au setup, historique, appel reçu avec id et arguments, image JPEG puis `toolResponse` avec l'id, appel
+    abandonné signalé, pas d'outils quand les actions sont coupées) ; côté conversation : question, phrase, action,
+    phrase suivante dans l'ordre ; appel en attente d'accord abandonné → « Annulé », rien d'exécuté ; capture montrée.
+    Le micro n'a jamais été ouvert : `AssistantVoice` lui-même (le câblage des événements) n'est pas testé, ni le vrai
+    Live API (format `toolCall`, image en `realtimeInput.video`).
+  - Testé (assistanttest, faux Gemini local, fausse clé, faux profil ; 158 vérifications) : 31 commandes permises et
+    59 refusées avec leur raison, `hostname` exécuté, un `ping` arrêté à 0,4 s ; les plans des vrais outils (jamais
+    exécutés) ; la boucle : question simple, recherche (appel + signature + id rendus), commande refusée (non
+    exécutée), autorisée, capture (`functionResponse` puis `inlineData`), historique sans actions, modèle qui refuse
+    les outils (relancé sans, ensuite aussi), qui refuse la réflexion (outils gardés), 8 tours puis `NONE`, actions
+    coupées, deux appels à la fois, « Nouvelle conversation » pendant une attente d'accord. Pas testés : la capture
+    réelle, le vrai Google (format des outils, signatures, image après une `functionResponse`), l'affichage.
 - **Mascotte** (`MascotView.Act`, pour les deux : celle de la notch, cachée, et celle de la goutte) : `Listen` (regarde
   la question), `Think` (orbe, yeux levés d'un côté puis de l'autre, `Ponder`), `Talk` (petit rebond,
   150 ms au plus), `Done` (clin d'œil, `Happy`), `Fail` (`Sad` 2,5 s) ; le regard ne suit plus le pointeur pendant ce temps.
@@ -960,6 +1414,19 @@ sur la mascotte (`MascotView.Clicked` → `INotchModule.OpenFromMascot`) ou `Ass
 ouvert par `SearchShortcut` (`Ctrl + Q`, hook clavier bas niveau) via `NotchContext.Show()`. La barre est
 `SearchView` ; les résultats tombent dans une bulle (`ShowBubble`, puis `NotchBubble.Resize`) qui contient
 `SearchResultsPanel` (lignes recyclées `SearchResultRow`, surlignage à ressort `Motion.Select`, arrivée en cascade).
+- **Liste qui défile** : `SearchViewModel.Listed` = 50 résultats gardés (web en dernier), la bulle haute de
+  `Lines` lignes (le réglage `SearchMaxResults`, 4 à 12). Les lignes sont dans un `ScrollViewer` (barre native
+  cachée) ; `OffsetShowing` garde la ligne choisie au clavier hors des fondus (la suivante dépasse de 14 px),
+  `ScrollTo` mémorise la cible (`_aim`) tant que `ChangeView` n'y est pas. Les fondus haut/bas et la fine barre
+  suivent `GetScrollViewerManipulationPropertySet` dans des expressions (rien côté UI pendant le défilement). La
+  souris choisit sur `PointerMoved` (pas `PointerEntered`) : la liste qui défile sous un pointeur immobile ne vole
+  pas la sélection aux flèches. Chaque nouvelle requête choisit le premier résultat ; la ligne choisie n'est gardée
+  (par sa clé, où qu'elle ait bougé) que si elle a été choisie à la main (`_picked` : flèches, Page, souris, menu)
+  pour la même requête : fichiers d'Everything arrivés après les sources locales, confirmation, suppression.
+  Avant, elle était gardée dès qu'elle restait dans la liste : une lettre de plus pouvait mener au 20ᵉ résultat.
+  `SearchView.ShowResults` redimensionne la bulle avant de remplir la liste (le
+  défilement lit la bonne hauteur). Calcul du défilement vérifié par simulation (50 résultats, 4/8/12 lignes, aller,
+  retour, tour des extrémités : la ligne choisie toujours entière hors des fondus) ; jamais vue à l'écran.
 - **Sources** (`SearchViewModel`) : calcul (`Calculator`), applis (`AppCatalog`, `shell:AppsFolder` en COM sur STA),
   projets VS Code (`CodeService`), paramètres et commandes (`SearchCatalog`), fichiers (`EverythingEngine`), web.
 - **Classement** : `FuzzyMatch` (début, mot, initiales, lettres dans l'ordre ; sans casse ni accents) + bonus de type
@@ -979,8 +1446,37 @@ ouvert par `SearchShortcut` (`Ctrl + Q`, hook clavier bas niveau) via `NotchCont
   d'options » qui affiche le menu complet (`TrackPopupMenuEx` sur la fenêtre de la notch, dont `OnWindowMessage` passe
   les messages des sous-menus dessinés par le shell à `ShellMenu.HandleMessage`). Testé sans interface : menus d'un
   fichier (26 entrées), d'un dossier (28), d'une appli du Store (5), verbe inconnu refusé, `properties` lancé.
-- **Réglages** : `AppSettings.Search*` (sources, nombre de résultats, dossiers ignorés), section « Recherche » des
+- **Réglages** : `AppSettings.Search*` (sources, lignes affichées, dossiers ignorés), section « Recherche » des
   paramètres avec l'état d'Everything et « Pleine vitesse ».
+
+### Mémoire — passe d'optimisation (demande utilisateur : « 700 Mo », jamais vue à l'écran)
+Mesuré chez l'utilisateur (liste des processus, lecture seule) : Ilot 291 Mo privés (385 Mo de jeu de travail),
+**Everything 266 Mo** privés, Gestionnaire des tâches les regroupant (enfant d'Ilot). Avec `dotnet run`, `dotnet` et
+`VBCSCompiler` en plus (~520 Mo, développement seulement). Disque C: : ~3,3 millions d'entrées (comptées par dossier).
+- **Everything** (`EverythingEngine.WriteSettings`, `Excluded`) : les « Dossiers ignorés » de la recherche
+  (`AppSettings.SearchExclusions`, déjà filtrés à chaque requête en `!"…"`) ne sont plus indexés : `\nom\` → nom seul
+  (dossier de ce nom à toute profondeur), `\a\b\` → `*\a\b`, `C:\x\` → `C:\x` ; jokers, disque entier, partage réseau :
+  laissés à la requête. Chez l'utilisateur : `\AppData\` 938 k, `\node_modules\` 1,1 M (profil seul), `C:\Windows\`
+  281 k, `\.gradle\` 250 k… Tri rapide gardé : date seulement (`fast_size_sort=0`, `fast_path_sort=0`,
+  `index_recent_changes=0`). `mode.txt` = mode + `SettingsVersion` (2) + la liste : réécrit quand l'un change. Liste
+  changée dans les paramètres : `_reindex` (4 s) relance la copie (`RestartOwnAsync` attend la fin du processus, sinon
+  l'ini qu'il réécrit en partant écraserait le nouveau). Syntaxe vérifiée sur Everything 1.4.1 (instance nommée
+  `-instance ilottest`, arbre de test dans le scratchpad, base relue ; pas l'instance d'Ilot) : chemin, nom seul,
+  `*\a\b`, nom avec espace ; pièges conservés (`Windows.old`, `AppDataX`, `ProgramData\MicrosoftX`, `objects`) ; une
+  base déjà construite est refiltrée au démarrage. Estimation : index ~4 fois plus petit.
+- **Média** (`MediaSessionService.ReadAsync`) : la position (certains lecteurs la redonnent chaque seconde) relisait
+  titre, artiste et **pochette entière** (jusqu'à 8 Mo, copiés et hachés à chaque fois : déchets du grand tas). Lus
+  maintenant sur `MediaPropertiesChanged` (ou autre session) seulement ; lecture en cours partagée (`_properties`,
+  une tâche) ; sans pochette, relue à chaque fois comme avant (certains lecteurs l'envoient après le titre).
+- **Pochette décodée à sa taille** (`MediaViewModel.ArtworkDecodeSize` 80 px logiques, petit côté) : affichée en 72 au
+  plus ; une miniature YouTube 1280 × 720 prenait 3,5 Mo, deux fois pendant un fondu.
+- **`Windowing/MemoryTrim`** : 30 s après la fermeture de la notch (ou d'une fenêtre : paramètres, accueil, feuille
+  détachée ; et après le démarrage), si aucune fenêtre d'Ilot n'est au premier plan : GC complet compacté (grand tas
+  compris), finaliseurs, second GC, puis `SetProcessWorkingSetSize(-1, -1)` (pages vers la liste d'attente de
+  Windows, relues au besoin). Hors du fil d'interface (attendre les finaliseurs dessus pourrait s'attendre lui-même :
+  un objet WinRT se libère sur son fil). Une fois par fermeture, jamais en boucle.
+- Non fait (pistes) : vues des modules créées à la demande (toutes vivent dès le démarrage) ; `PublishReadyToRun`
+  (code JIT privé remplacé par des pages d'image partagées, à mesurer : publication par l'utilisateur seulement).
 
 ---
 
@@ -1071,7 +1567,7 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
   s'estompant. Fermées, elles ne sont plus plus hautes que la notch du moment (`NotchSurface.ClosedPod` : `Min(cw, n.Height)`).
 
 - **Booster de son natif** (`Quick/SoundBooster.cs`, `Quick/BoostStream.cs`, jamais vu à l'écran ; Equalizer APO
-  abandonné : l'utilisateur ne veut rien à installer). Par appli, jusqu'à 200 % (`SoundBooster.Most`), Windows 11
+  abandonné : l'utilisateur ne veut rien à installer). Par appli, jusqu'à 300 % (`SoundBooster.Most`, 200 % d'abord : trop peu d'écart), Windows 11
   (build ≥ 20348 : la capture d'un processus, `WasapiRecorderBuilder.WithProcessLoopback`, NAudio 3.3).
   - **Le principe, mesuré** (sondes du scratchpad `loopbackprobe`) : la capture d'un processus se fait **après** le volume
     de sa session (coupée ou à 0 : plus rien). Mais à 0,1 % (`BoostStream.Floor`), elle est exacte : 148 dB de rapport
@@ -1096,7 +1592,7 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
     Rien de boosté ni de noté : aucune surveillance, rien ne tourne.
   - Réglages `AppSettings.BoostOn` (l'interrupteur) et `BoostLevels` (programme en minuscules → niveau > 1, gardés
     interrupteur éteint). `MixerApp.Key` = le programme en minuscules. Mélangeur : interrupteur en bas
-    (`MixerPanel.ShowBooster`) ; allumé, `MixerSlider.Most` = 2 et un repère à 1 (aimanté à ±4 %), le pourcentage > 100
+    (`MixerPanel.ShowBooster`) ; allumé, `MixerSlider.Most` = 3 et un repère à 1 (aimanté à ±6 %), le pourcentage > 100
     dans la couleur de la mascotte ; un curseur passe par `SoundBooster.Set` au-delà de 100 % ou tant que
     `SoundBooster.Holds` (sinon directement le volume de Windows).
   - Testé en direct (scratchpad `boostertest`, 28 vérifications, sur ses propres processus enfants uniquement, bips à

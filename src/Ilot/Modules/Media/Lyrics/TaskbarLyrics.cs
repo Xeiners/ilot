@@ -20,7 +20,8 @@ namespace Ilot.Modules.Media.Lyrics;
 /// light on a dark taskbar, dark on a light one. There while a track with lyrics plays (a pause of a moment does not take
 /// it away); gone when an app is full screen, when the taskbar hides itself, or when it has no room. Placed again whenever
 /// the taskbar may have changed (another app in front, and every few seconds while it shows), and kept above it. A click
-/// opens the notch on the player.
+/// opens the notch on the player. Dragged onto another screen and let go, it goes onto that screen's taskbar, and stays
+/// there (<see cref="AppSettings.LyricsTaskbarScreen"/>); a screen without a taskbar sends it back.
 /// </summary>
 internal sealed class TaskbarLyrics : IDisposable
 {
@@ -42,6 +43,7 @@ internal sealed class TaskbarLyrics : IDisposable
     private bool _playing;
     private bool _shown;
     private bool _looking;
+    private bool _lookAgain; // Asked to look while looking: once more after.
     private RectInt32? _placed;
     private double _scale = 1; // The taskbar's screen's scale, as last read.
     private bool _disposed;
@@ -55,6 +57,7 @@ internal sealed class TaskbarLyrics : IDisposable
         _window = new TaskbarLyricsWindow();
         _window.Clicked += (_, _) => Clicked?.Invoke(this, EventArgs.Empty);
         _window.Resized += OnResized;
+        _window.Dropped += OnDropped;
         _window.Panel.SetLyrics(lyrics.Content);
         _window.SetCover(player.Artwork);
         ShowBadge();
@@ -161,11 +164,32 @@ internal sealed class TaskbarLyrics : IDisposable
         {
             Look(); // Set in the settings: at its new width.
         }
+        else if (e.PropertyName == nameof(AppSettings.LyricsTaskbarScreen))
+        {
+            _placed = null;
+            Look(); // Onto that screen's taskbar.
+        }
     }
 
     /// <summary>Its left edge pulled and let go: how wide its lines may go now, kept.</summary>
     private void OnResized(object? sender, int width) =>
         _settings.LyricsTaskbarWidth = width / _scale - TaskbarLyricsWindow.Chrome;
+
+    /// <summary>
+    /// Dragged and let go: onto the taskbar of the screen under the pointer, kept (the main screen kept as none, so it
+    /// follows the main screen); a screen without a taskbar (Windows may show it on the main one only): back where it was.
+    /// </summary>
+    private void OnDropped(object? sender, PointInt32 at)
+    {
+        nint monitor = NativeMethods.MonitorFromPoint(new NativeMethods.Point { X = at.X, Y = at.Y }, NativeMethods.MONITOR_DEFAULTTONEAREST);
+        if (TaskbarSpots.HasTaskbar(monitor))
+        {
+            _settings.LyricsTaskbarScreen = NativeMethods.IsPrimaryMonitor(monitor) ? "" : NativeMethods.MonitorName(monitor) ?? "";
+        }
+
+        _placed = null; // Wherever it was let go, it is placed again.
+        Look();
+    }
 
     /// <summary>Another app in front: the taskbar came over the line if it was clicked; and it may have changed (an app opened…).</summary>
     private void OnForegroundChanged(object? sender, EventArgs e)
@@ -201,7 +225,13 @@ internal sealed class TaskbarLyrics : IDisposable
     /// <summary>Where the taskbar has room, read off the UI thread; the line goes there (or away, without room).</summary>
     private async void Look()
     {
-        if (_looking || _disposed || !Wanted || _window.IsResizing)
+        if (_looking)
+        {
+            _lookAgain = true;
+            return;
+        }
+
+        if (_disposed || !Wanted || _window.IsResizing || _window.IsMoving)
         {
             return;
         }
@@ -210,16 +240,29 @@ internal sealed class TaskbarLyrics : IDisposable
         TaskbarSpots.Taskbar? taskbar;
         try
         {
-            taskbar = await TaskbarSpots.FindAsync();
+            taskbar = await TaskbarSpots.FindAsync(_settings.LyricsTaskbarScreen);
         }
         finally
         {
             _looking = false;
         }
 
-        if (_disposed || !Wanted || _window.IsResizing)
+        if (_lookAgain)
+        {
+            _lookAgain = false;
+            Look(); // Something changed meanwhile (a screen chosen…): what was read may be stale.
+            return;
+        }
+
+        if (_disposed || !Wanted || _window.IsResizing || _window.IsMoving)
         {
             return;
+        }
+
+        // Gone when an app is full screen on that taskbar's screen.
+        if (taskbar is { Screen: { Width: > 0 } screen })
+        {
+            _fullscreen.Screen = screen;
         }
 
         if (Spot(taskbar, _settings.LyricsTaskbarWidth) is not { } spot)
@@ -271,7 +314,10 @@ internal sealed class TaskbarLyrics : IDisposable
         int narrowest = (int)Math.Round((AppSettings.MinLyricsTaskbarWidth + TaskbarLyricsWindow.Chrome) * scale);
         int widest = (int)Math.Round((AppSettings.MaxLyricsTaskbarWidth + TaskbarLyricsWindow.Chrome) * scale);
         int wanted = (int)Math.Round((lines + TaskbarLyricsWindow.Chrome) * scale);
-        if (taskbar.Gaps.LastOrDefault(gap => gap.Right - gap.Left - room >= narrowest) is not { Right: > 0 } free)
+        // None found is told apart by null, not by a position: a screen left of the main one has negative ones (its
+        // taskbar from -1920 to 0), and its free stretch against the clock ends before 0.
+        if (taskbar.Gaps.Where(gap => gap.Right - gap.Left - room >= narrowest).Select(gap => ((int Left, int Right)?)gap).LastOrDefault()
+            is not { } free)
         {
             return null;
         }

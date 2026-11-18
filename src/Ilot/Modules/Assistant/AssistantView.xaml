@@ -102,6 +102,25 @@
                     Width="84"
                     VerticalAlignment="Center" />
             </StackPanel>
+            <!--  The screen, joined to the question as a pasted image is (Ctrl + Shift + S too); the notch left out of it.  -->
+            <Button
+                x:Name="CaptureButton"
+                Width="28"
+                Height="26"
+                Margin="0,1,0,0"
+                Padding="0"
+                VerticalAlignment="Top"
+                AllowFocusOnInteraction="False"
+                AutomationProperties.Name="Capturer l'écran"
+                Background="Transparent"
+                BorderThickness="0"
+                CornerRadius="7"
+                ToolTipService.ToolTip="Capturer l'écran (Ctrl + Maj + S)">
+                <FontIcon
+                    FontSize="14"
+                    Foreground="#B3FFFFFF"
+                    Glyph="&#xE722;" />
+            </Button>
             <Border
                 Height="22"
                 Margin="0,3,0,0"

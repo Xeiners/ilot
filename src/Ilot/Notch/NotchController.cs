@@ -15,7 +15,7 @@ public enum NotchPhase
 }
 
 /// <summary>
-/// Interaction state machine of the notch: hover intent, delayed collapse and the double-click pin.
+/// Interaction state machine of the notch: hover intent, delayed collapse and the pin (« Garder ouverte », in its menu).
 /// It knows nothing about rendering; the view reacts to <see cref="PhaseChanged"/> and <see cref="PinnedChanged"/>.
 /// </summary>
 public sealed class NotchController
@@ -159,9 +159,6 @@ public sealed class NotchController
             Collapse();
         }
     }
-
-    /// <summary>Double-click pins the notch open; another double-click closes it.</summary>
-    public void OnDoubleTapped() => SetPinned(!IsPinned);
 
     /// <summary>
     /// Back to rest without any event (the notch is being put away, e.g. while an app is full screen):

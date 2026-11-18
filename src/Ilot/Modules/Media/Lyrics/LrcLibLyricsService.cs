@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace Ilot.Modules.Media.Lyrics;
 
@@ -12,15 +11,17 @@ namespace Ilot.Modules.Media.Lyrics;
 /// Synced lyrics from LRCLIB (https://lrclib.net), a free and open lyrics database.
 /// </summary>
 /// <remarks>
-/// Exact match first (<c>/api/get</c>: title, artist, album, duration), then a search as a fallback. Results are
-/// cached in memory per artist and title, "no lyrics" included, and concurrent requests for the same track share
-/// one download. Network failures are not cached: the next play of the track tries again. Everything runs off
-/// the UI thread.
+/// Asked several ways at once: the exact track (title, artist, album, duration), and a search for each way the track can
+/// be read (<see cref="LyricsMatcher.Readings"/>); should nothing score high enough, a wider search on the words of the
+/// title and the artist. Every candidate is scored (<see cref="LyricsMatcher"/>) and the best one kept if it is good
+/// enough: no lyrics rather than wrong ones. Results are cached in memory per track as asked (its duration included, so a
+/// track asked again once its duration is known is looked for again), "no lyrics" included; concurrent requests for the
+/// same track share one download. When LRCLIB cannot be reached at all, nothing is cached: the next play tries again.
+/// Everything runs off the UI thread.
 /// </remarks>
-public sealed partial class LrcLibLyricsService : ILyricsService, IDisposable
+public sealed class LrcLibLyricsService : ILyricsService, IDisposable
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private static readonly TimeSpan DurationTolerance = TimeSpan.FromSeconds(5);
 
     private readonly HttpClient _http;
     private readonly ConcurrentDictionary<string, Task<SyncedLyrics?>> _cache = new();
@@ -33,7 +34,8 @@ public sealed partial class LrcLibLyricsService : ILyricsService, IDisposable
 
     public Task<SyncedLyrics?> GetAsync(LyricsQuery query, CancellationToken cancellationToken)
     {
-        string key = Normalize(query.Artist) + '\u001F' + Normalize(query.Title);
+        string seconds = Math.Round(query.Duration.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        string key = string.Join('\u001F', Normalize(query.Artist), Normalize(query.Title), Normalize(query.Album), seconds);
         return _cache.GetOrAdd(key, _ => FetchAsync(query, key)).WaitAsync(cancellationToken);
     }
 
@@ -43,8 +45,50 @@ public sealed partial class LrcLibLyricsService : ILyricsService, IDisposable
     {
         try
         {
-            var track = await GetExactAsync(query).ConfigureAwait(false) ?? await SearchAsync(query).ConfigureAwait(false);
-            return LrcParser.Parse(track?.SyncedLyrics);
+            var readings = LyricsMatcher.Readings(query);
+            if (readings.Count == 0)
+            {
+                return null;
+            }
+
+            var (first, wider) = LyricsMatcher.Searches(readings);
+            var found = new Dictionary<long, LyricsCandidate>();
+            int answered = 0;
+
+            await Gather([GetExactAsync(query), .. first.Select(search => SearchAsync(search.Title, search.Artist))]).ConfigureAwait(false);
+            var best = LyricsMatcher.Best(query, readings, found.Values);
+            if (best is not { Score: >= LyricsMatcher.Sure })
+            {
+                await Gather(wider.Select(SearchWordsAsync)).ConfigureAwait(false);
+                best = LyricsMatcher.Best(query, readings, found.Values);
+            }
+
+            if (answered == 0)
+            {
+                throw new HttpRequestException("LRCLIB did not answer."); // Not cached: tried again next time.
+            }
+
+            Debug.WriteLine(best is null
+                ? $"[Lyrics] None good enough for \"{query.Title}\" among {found.Count} candidates."
+                : $"[Lyrics] \"{query.Title}\" → {best.Candidate.Artist} - {best.Candidate.Title} ({best.Score:0}/100).");
+            return LrcParser.Parse(best?.Candidate.SyncedLyrics);
+
+            async Task Gather(IEnumerable<Task<LyricsCandidate[]?>> requests)
+            {
+                foreach (var candidates in await Task.WhenAll(requests).ConfigureAwait(false))
+                {
+                    if (candidates is null)
+                    {
+                        continue;
+                    }
+
+                    answered++;
+                    foreach (var candidate in candidates)
+                    {
+                        found.TryAdd(candidate.Id, candidate);
+                    }
+                }
+            }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
@@ -54,67 +98,21 @@ public sealed partial class LrcLibLyricsService : ILyricsService, IDisposable
         }
     }
 
-    private async Task<LrcLibTrack?> GetExactAsync(LyricsQuery query)
+    /// <summary>The track exactly as the player names it (LRCLIB allows a couple of seconds); none if it lacks album or duration.</summary>
+    private Task<LyricsCandidate[]?> GetExactAsync(LyricsQuery query)
     {
-        if (query.Album.Length == 0 || query.Duration <= TimeSpan.Zero)
+        if (query.Album.Length == 0 || query.Duration <= TimeSpan.Zero || query.Artist.Length == 0)
         {
-            return null;
+            return Task.FromResult<LyricsCandidate[]?>([]);
         }
 
         string url = "api/get"
             + $"?track_name={Escape(query.Title)}&artist_name={Escape(query.Artist)}&album_name={Escape(query.Album)}"
             + $"&duration={Math.Round(query.Duration.TotalSeconds).ToString(CultureInfo.InvariantCulture)}";
-        using var response = await _http.GetAsync(url).ConfigureAwait(false);
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
-        response.EnsureSuccessStatusCode();
-        var track = await response.Content.ReadFromJsonAsync<LrcLibTrack>(Json).ConfigureAwait(false);
-        return string.IsNullOrWhiteSpace(track?.SyncedLyrics) ? null : track;
+        return AskAsync(url, single: true);
     }
 
-    /// <summary>
-    /// Searches by title and artist, then by title alone keeping only the same artist ("DemiLovatoVEVO" is
-    /// "Demi Lovato"), then for video titles shaped "Artist - Title".
-    /// </summary>
-    private async Task<LrcLibTrack?> SearchAsync(LyricsQuery query)
-    {
-        string title = CleanTitle(query.Title);
-        string artist = CleanArtist(query.Artist);
-        if (title.Length == 0)
-        {
-            return null;
-        }
-
-        if (artist.Length > 0)
-        {
-            var match = Pick(await SearchAsync(title, artist).ConfigureAwait(false), query.Duration, artist: null);
-            if (match is not null)
-            {
-                return match;
-            }
-        }
-
-        var byTitle = Pick(await SearchAsync(title, artist: null).ConfigureAwait(false), query.Duration, artist);
-        if (byTitle is not null || artist.Length == 0)
-        {
-            return byTitle;
-        }
-
-        int dash = title.IndexOf(" - ", StringComparison.Ordinal);
-        if (dash <= 0)
-        {
-            return null;
-        }
-
-        string videoArtist = title[..dash].Trim();
-        string videoTitle = title[(dash + 3)..].Trim();
-        return Pick(await SearchAsync(videoTitle, videoArtist).ConfigureAwait(false), query.Duration, artist: null);
-    }
-
-    private async Task<LrcLibTrack[]> SearchAsync(string title, string? artist)
+    private Task<LyricsCandidate[]?> SearchAsync(string title, string? artist)
     {
         string url = $"api/search?track_name={Escape(title)}";
         if (!string.IsNullOrEmpty(artist))
@@ -122,51 +120,42 @@ public sealed partial class LrcLibLyricsService : ILyricsService, IDisposable
             url += $"&artist_name={Escape(artist)}";
         }
 
-        return await _http.GetFromJsonAsync<LrcLibTrack[]>(url, Json).ConfigureAwait(false) ?? [];
+        return AskAsync(url, single: false);
     }
 
-    /// <summary>Best synced candidate, optionally by the same artist (compared letters only).</summary>
-    private static LrcLibTrack? Pick(LrcLibTrack[] results, TimeSpan duration, string? artist)
+    /// <summary>A search on words, wherever they are (title, artist, album).</summary>
+    private Task<LyricsCandidate[]?> SearchWordsAsync(string words) => AskAsync($"api/search?q={Escape(words)}", single: false);
+
+    /// <summary>The candidates of one request; <c>null</c> when it could not be answered (none found is an empty list).</summary>
+    private async Task<LyricsCandidate[]?> AskAsync(string url, bool single)
     {
-        var synced = results.Where(track => !string.IsNullOrWhiteSpace(track.SyncedLyrics));
-        if (artist is not null)
+        try
         {
-            string wanted = Letters(artist);
-            synced = synced.Where(track => Letters(track.ArtistName).Contains(wanted) || wanted.Contains(Letters(track.ArtistName)));
-        }
+            using var response = await _http.GetAsync(url).ConfigureAwait(false);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return [];
+            }
 
-        if (duration <= TimeSpan.Zero)
+            response.EnsureSuccessStatusCode();
+            var tracks = single
+                ? [await response.Content.ReadFromJsonAsync<LrcLibTrack>(Json).ConfigureAwait(false)]
+                : await response.Content.ReadFromJsonAsync<LrcLibTrack?[]>(Json).ConfigureAwait(false) ?? [];
+            return tracks.OfType<LrcLibTrack>().Select(track => track.ToCandidate()).ToArray();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
-            return synced.FirstOrDefault();
+            Debug.WriteLine($"[Lyrics] {url}: {ex.Message}");
+            return null;
         }
-
-        // Same song, other version (live, remix…) would drift out of sync: insist on a close duration.
-        return synced
-            .Select(track => (track, gap: Math.Abs((track.Duration ?? 0) - duration.TotalSeconds)))
-            .Where(candidate => candidate.gap <= DurationTolerance.TotalSeconds)
-            .OrderBy(candidate => candidate.gap)
-            .Select(candidate => candidate.track)
-            .FirstOrDefault();
     }
-
-    private static string Letters(string? value) =>
-        string.Concat((value ?? "").Where(char.IsLetterOrDigit)).ToLowerInvariant() is { Length: > 0 } letters ? letters : "\u0000";
 
     private static string Escape(string value) => Uri.EscapeDataString(value);
 
     private static string Normalize(string value) => value.Trim().ToLowerInvariant();
 
-    /// <summary>"Song (Official Video)" → "Song": video platforms decorate titles that the database does not.</summary>
-    private static string CleanTitle(string title) => Decoration().Replace(title, "").Trim();
-
-    /// <summary>"Artist - Topic" / "ArtistVEVO" → "Artist" (YouTube channel names).</summary>
-    private static string CleanArtist(string artist) => ChannelSuffix().Replace(artist, "").Trim();
-
-    [GeneratedRegex(@"\s*[\(\[][^\)\]]*\b(official|video|audio|lyrics?|clip|visuali[sz]er|remaster(ed)?|hd|4k)\b[^\)\]]*[\)\]]", RegexOptions.IgnoreCase)]
-    private static partial Regex Decoration();
-
-    [GeneratedRegex(@"(\s*-\s*Topic|VEVO)$", RegexOptions.IgnoreCase)]
-    private static partial Regex ChannelSuffix();
-
-    private sealed record LrcLibTrack(string? SyncedLyrics, string? ArtistName, double? Duration);
+    private sealed record LrcLibTrack(long Id, string? TrackName, string? ArtistName, string? AlbumName, double? Duration, string? SyncedLyrics)
+    {
+        public LyricsCandidate ToCandidate() => new(Id, TrackName ?? "", ArtistName ?? "", AlbumName ?? "", Duration, SyncedLyrics);
+    }
 }

@@ -25,19 +25,23 @@ public sealed class AssistantHistory
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
-    private readonly DispatcherQueueTimer _saveTimer;
+    private readonly DispatcherQueueTimer? _saveTimer;
     private readonly string _path;
     private List<SavedConversation>? _conversations;
     private Task _writing = Task.CompletedTask;
 
+    /// <param name="dispatcher">The UI thread's, for the save a moment after the last change; none (the tests): saved at once.</param>
     /// <param name="path">Where it is kept: the default, or another file (the tests', never the user's).</param>
-    public AssistantHistory(DispatcherQueue dispatcher, string? path = null)
+    public AssistantHistory(DispatcherQueue? dispatcher, string? path = null)
     {
         _path = path ?? DefaultPath;
-        _saveTimer = dispatcher.CreateTimer();
-        _saveTimer.Interval = TimeSpan.FromMilliseconds(800);
-        _saveTimer.IsRepeating = false;
-        _saveTimer.Tick += (_, _) => Save();
+        if (dispatcher is not null)
+        {
+            _saveTimer = dispatcher.CreateTimer();
+            _saveTimer.Interval = TimeSpan.FromMilliseconds(800);
+            _saveTimer.IsRepeating = false;
+            _saveTimer.Tick += (_, _) => Save();
+        }
     }
 
     /// <summary>The conversations kept, latest first (read from the disk the first time they are asked for).</summary>
@@ -96,6 +100,12 @@ public sealed class AssistantHistory
 
     private void ScheduleSave()
     {
+        if (_saveTimer is null)
+        {
+            Save();
+            return;
+        }
+
         _saveTimer.Stop();
         _saveTimer.Start();
     }

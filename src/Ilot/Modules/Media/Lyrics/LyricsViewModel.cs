@@ -27,6 +27,7 @@ public sealed class LyricsViewModel : ObservableObject
     private string _trackKey = "";
     private SyncedLyrics? _content;
     private bool _isTracking;
+    private bool _withoutDuration;
 
     public LyricsViewModel(
         IMediaSessionService media,
@@ -121,12 +122,21 @@ public sealed class LyricsViewModel : ObservableObject
     private async void OnSnapshot(MediaSnapshot snapshot)
     {
         string key = snapshot.HasSession && snapshot.Title.Length > 0 ? $"{snapshot.Artist}\u001F{snapshot.Title}" : "";
+        bool timed = snapshot.Timeline.Duration > TimeSpan.Zero;
         if (key == _trackKey)
         {
+            // The player told the duration after the title (often): looked for again, versions told apart now.
+            if (key.Length > 0 && timed && _withoutDuration)
+            {
+                _withoutDuration = false;
+                await LookAsync(snapshot, again: true);
+            }
+
             return;
         }
 
         _trackKey = key;
+        _withoutDuration = !timed;
         _fetch?.Cancel();
         Content = null;
         if (key.Length == 0)
@@ -135,13 +145,23 @@ public sealed class LyricsViewModel : ObservableObject
             return;
         }
 
+        await LookAsync(snapshot, again: false);
+    }
+
+    /// <summary>
+    /// The lyrics of the track playing. Looked for <paramref name="again"/> (its duration came): what is shown stays until
+    /// better lyrics come, and stays if none do (the first ones were chosen strictly, without the duration).
+    /// </summary>
+    private async Task LookAsync(MediaSnapshot snapshot, bool again)
+    {
+        _fetch?.Cancel();
         var fetch = _fetch = new CancellationTokenSource();
-        IsLooking = true;
-        var query = new LyricsQuery(snapshot.Title, snapshot.Artist, snapshot.AlbumTitle, snapshot.Timeline.Duration);
+        IsLooking = !again || _content is null;
+        var query = new LyricsQuery(snapshot.Title, snapshot.Artist, snapshot.AlbumTitle, snapshot.Timeline.Duration, snapshot.SourceAppId ?? "");
         try
         {
             var lyrics = await _service.GetAsync(query, fetch.Token);
-            if (!fetch.IsCancellationRequested)
+            if (!fetch.IsCancellationRequested && (!again || (lyrics is not null && !Same(lyrics, _content))))
             {
                 Content = lyrics;
             }
@@ -158,6 +178,9 @@ public sealed class LyricsViewModel : ObservableObject
             }
         }
     }
+
+    /// <summary>The same lyrics, line for line (found again the same way: nothing to redraw).</summary>
+    private static bool Same(SyncedLyrics a, SyncedLyrics? b) => b is not null && a.Lines.SequenceEqual(b.Lines);
 
     private void Sync()
     {

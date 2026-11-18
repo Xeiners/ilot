@@ -49,24 +49,38 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
-    /// A request is given up when nothing has come for this long: before its first word (the document read, a little
-    /// thought), then between two pieces (a stalled connection, a model stuck). A long answer may take longer in all.
+    /// A model is passed for the next when nothing has come from it for this long: before its first word (the document
+    /// read, a little thought: well under a minute, usually), then between two pieces (a stalled connection, a model
+    /// stuck). Google, overloaded, often keeps a request waiting rather than saying so: seen 4 minutes without a word, and
+    /// 3 minutes before a « busy ». A long answer may take longer in all.
     /// </summary>
-    private static readonly TimeSpan FirstWordWithin = TimeSpan.FromMinutes(4);
-    private static readonly TimeSpan PieceWithin = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan FirstWordWithin = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan PieceWithin = TimeSpan.FromSeconds(60);
+
+    /// <summary>Models passed for their silence before a request gives up: Google is slow everywhere, it is said.</summary>
+    private const int SilentPasses = 3;
 
     // Every model set aside (quotas spent, busy): the soonest back waited for this many times, this long at most each.
     private const int QuotaWaits = 4;
     private static readonly TimeSpan LongestWait = TimeSpan.FromSeconds(75);
 
-    // A model set aside: busy, for a moment; its quota for the day spent, for a while (asked again now and then).
+    // A model set aside: busy, for a moment; silent, a little longer; its quota for the day spent, for a while (asked
+    // again now and then).
     private static readonly TimeSpan BusyRest = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan SilentRest = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan DailyRest = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// The model that answered last is asked first for this long: Google's rushes last minutes, and the models before it
+    /// in the list were passed (busy, silent) when it answered.
+    /// </summary>
+    private static readonly TimeSpan AnsweredFirstFor = TimeSpan.FromMinutes(10);
 
     // Models that refused a thinking setting: asked without one.
     private readonly HashSet<string> _thinksItsWay = [];
 
     private readonly Dictionary<string, DateTime> _resting = [];
+    private (string Model, DateTime At)? _answered;
     private Task<IReadOnlyList<string>>? _listing;
     private string? _listedFor;
 
@@ -79,11 +93,12 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
         const string ask = """
             Donne le plan de ce cours.
             1. title : son titre, court (celui du document s'il en a un).
-            2. chapters : ses grandes parties, dans l'ordre du cours, chacune avec ses pages ou diapositives (« 3-12 ») ; entre 2 et 12 parties, en regroupant les petites, avec des titres courts et clairs.
+            2. chapters : ses grandes parties de contenu, dans l'ordre du cours, chacune avec ses pages ou diapositives (« 3-12 ») ; entre 2 et 12 parties, en regroupant les petites.
+            - Seulement ce qui s'apprend : jamais la page de titre, le sommaire ou plan (ni les diapositives « Plan » qui reviennent entre les chapitres), les objectifs, une introduction qui ne fait qu'annoncer le plan, les informations pratiques (équipe enseignante, organisation, planning, modalités d'évaluation, consignes d'examen, prérequis), les remerciements, la bibliographie, ni un résumé ou récapitulatif du cours entier (leurs pages vont avec la partie voisine). Une introduction qui enseigne (rappels, vocabulaire, notions de base) est une vraie partie : nomme-la par son sujet.
+            - Chaque partie nommée par son sujet, en quelques mots clairs (« Dosage par titrage », « Innervation du coude ») : jamais un titre vague (« Cours », « Résumé », « Partie 1 », « Introduction », « Généralités »), jamais deux fois le même titre.
             """;
         var outline = await AskAsync<StudyOutline>(document, ask, OutlineSchema(), temperature: 0.1, quick: true, progress: null, note, cancellation);
-        var chapters = outline.Chapters.Where(chapter => chapter.Title.Trim().Length > 0)
-            .Select(chapter => new StudyChapter(chapter.Title.Trim(), chapter.Pages.Trim())).ToList();
+        var chapters = StudyChapters.Contents(outline.Chapters.Select(chapter => new StudyChapter(chapter.Title.Trim(), chapter.Pages.Trim())));
         return outline with { Title = outline.Title.Trim(), Chapters = chapters };
     }
 
@@ -105,7 +120,9 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
             - garde tout ce qui se retient pour un examen : définitions, classifications, mécanismes étape par étape, localisations et rapports, structure, innervation et vascularisation, fonctions, valeurs chiffrées et unités, signes cliniques, exceptions ;
             - termine chaque partie par « ### À retenir » (3 à 6 puces, l'essentiel) et, si le cours en contient, « ### À ne pas confondre » (notions du cours proches l'une de l'autre, et ce qui les distingue) ;
             - à la fin de chaque puce, {unit} d'où elle vient, entre parenthèses ;
-            - pas de tableau, pas d'image, pas d'introduction ni de conclusion générale.
+            - chaque partie une seule fois, sur son seul contenu ; rien de la page de titre, du sommaire ou plan, des objectifs, de la bibliographie ni des informations pratiques (équipe, organisation, planning, évaluation, examen) ;
+            - pas de tableau, pas d'image, pas d'introduction ni de conclusion générale, pas de résumé du résumé ;
+            {FormulaRules}
             """;
         var sheet = await AskAsync<SummaryAnswer>(document, ask, SummarySchema(), temperature: 0.2, quick: false,
             written => parts(PartHeading().Count(written)), note, cancellation);
@@ -152,6 +169,7 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
             - Ce qui compte pour un examen, jamais l'anecdotique (auteurs, mise en page, numérotation).
             - source : {unit} où se trouve la réponse.
             - chapter : la partie du cours, écrite exactement comme dans cette liste : {chapters}.
+            {FormulaRules}
             {ChoiceRules}
             {already}
             """;
@@ -228,6 +246,14 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
     }
 
     /// <summary>What makes good choices: the right one short, three decoys from the course that a student could pick.</summary>
+    /// <summary>
+    /// How formulas are written (drawn by StudyMathView): standard LaTeX between dollars, whole and exact. A formula with a
+    /// fraction or a root is drawn on a line of its own; « $$ » asks for that too.
+    /// </summary>
+    private const string FormulaRules = """
+        - les formules, relations et équations en LaTeX standard entre $…$ (jamais en texte brut comme « a/b » ou « C_A ») : \frac{a}{b}, x^{2}, C_{A}, V_{B,E}, n(A)_{0}, \sqrt{x}, \times, \cdot, \Leftrightarrow, \Rightarrow, \approx, \leq, \Delta, \text{mol} pour les mots et les unités, \ce{H2SO4} pour la chimie ; exactes, complètes, recopiées du cours ; une formule importante seule sur sa puce : « - **Nom** : $$…$$ » ; les symboles simples dans le texte aussi ($C_{A}$, $10^{-3}$) ;
+        """;
+
     private const string ChoiceRules = """
         - choice : la bonne réponse en version courte (quelques mots, sans phrase), telle qu'elle apparaît parmi quatre choix.
         - decoys : exactement 3 mauvaises réponses, de la même nature et de la même longueur que choice (un autre nerf pour un nerf, une autre valeur pour une valeur…), prises de préférence dans le vocabulaire du cours, plausibles pour un étudiant qui confond, mais fausses sans ambiguïté selon le cours. Jamais « aucune de ces réponses », ni « toutes ».
@@ -273,11 +299,13 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
             : throw new GeminiException(Loc.T("Ajoutez d'abord une clé Gemini dans Paramètres, Assistant."));
         var part = source ?? await (document ?? throw new ArgumentNullException(nameof(document))).PartAsync(gemini, key, cancellation);
 
-        // A model that cannot answer now (its quota spent, busy) is set aside and the next one asked, as the assistant does
-        // (it answered while this waited on one model); cut off while writing (Google overloaded mid-answer: seen after four
-        // parts of the mind maps), the answer is asked again, from its start, of the next one. Only when none can is the
-        // soonest one back waited for, as Google says, a few times at most.
+        // A model that cannot answer now (its quota spent, busy, or silent: nothing from it in time) is set aside and the
+        // next one asked, as the assistant does (it answered while this waited on one model); cut off or stalled while
+        // writing (Google overloaded mid-answer: seen after four parts of the mind maps), the answer is asked again, from
+        // its start, of the next one. Only when none can is the soonest one back waited for, as Google says, a few times
+        // at most; a few silent ones, and it is said.
         GeminiException? last = null;
+        int silent = 0;
         for (int waited = 0; ; waited++)
         {
             var models = await ModelsAsync(key);
@@ -317,7 +345,9 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
                     }
 
                     note?.Invoke("");
-                    return JsonSerializer.Deserialize<T>(text.ToString(), Json) ?? throw new GeminiException(Loc.T("Notch n'a rien pu tirer de ce document."));
+                    var answer = JsonSerializer.Deserialize<T>(text.ToString(), Json) ?? throw new GeminiException(Loc.T("Notch n'a rien pu tirer de ce document."));
+                    _answered = (model, DateTime.UtcNow);
+                    return answer;
                 }
                 catch (GeminiException ex) when (ex.ModelUnusable)
                 {
@@ -329,7 +359,21 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
 
                     last = ex;
                     _resting[model] = ex.Lasting ? DateTime.MaxValue
-                        : DateTime.UtcNow + (ex.Daily ? DailyRest : ex.RetryAfter is { } after ? after : BusyRest);
+                        : DateTime.UtcNow + (ex.Daily ? DailyRest : ex.RetryAfter is { } after ? after : ex.Silent ? SilentRest : BusyRest);
+                    if (_answered?.Model == model)
+                    {
+                        _answered = null; // No longer the one to ask first.
+                    }
+
+                    if (ex.Silent)
+                    {
+                        if (++silent >= SilentPasses)
+                        {
+                            throw new GeminiException(Loc.T("Google ne répond pas en ce moment : réessayez dans quelques minutes."));
+                        }
+
+                        note?.Invoke(Loc.T("Google tarde à répondre : Notch essaie un autre modèle…"));
+                    }
                 }
                 catch (GeminiException ex)
                 {
@@ -358,9 +402,12 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
                     }
                     catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
                     {
-                        throw new GeminiException(text.Length == 0
-                            ? Loc.T("Notch n'a pas commencé à répondre : réessayez dans un moment.")
-                            : Loc.T("Notch s'est arrêté en cours de route : réessayez."));
+                        // Silent: passed for the next model (see above), like a busy one.
+                        throw new GeminiException(
+                            text.Length == 0 ? Loc.T("Google ne répond pas en ce moment : réessayez dans quelques minutes.")
+                                : Loc.T("Notch s'est arrêté en cours de route : réessayez."),
+                            modelUnusable: true)
+                        { Silent = true };
                     }
                 }
             }
@@ -388,10 +435,8 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
     /// <summary>
     /// The chapters of a summary sheet written without an outline: its « ## » parts, their pages from « (p. 3-12) ».
     /// </summary>
-    public static List<StudyChapter> ChaptersOf(string summary) => SheetPart().Matches(summary)
-        .Select(match => new StudyChapter(match.Groups["title"].Value.Trim(), match.Groups["pages"].Value.Trim()))
-        .Where(chapter => chapter.Title.Length > 0)
-        .ToList();
+    public static List<StudyChapter> ChaptersOf(string summary) => StudyChapters.Contents(SheetPart().Matches(summary)
+        .Select(match => new StudyChapter(match.Groups["title"].Value.Trim(), match.Groups["pages"].Value.Trim())));
 
     /// <summary>
     /// The models to ask, best first: the one chosen for the assistant, if any; then the everyday « Flash » ones, the
@@ -412,7 +457,12 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
 
         var listed = await _listing;
         string chosen = settings.AssistantModel.Trim();
-        return chosen.Length > 0 ? [chosen, .. listed.Where(model => model != chosen)] : listed;
+        IReadOnlyList<string> models = chosen.Length > 0 ? [chosen, .. listed.Where(model => model != chosen)] : listed;
+
+        // The one that answered last first, for a while (see AnsweredFirstFor).
+        return _answered is { } answered && DateTime.UtcNow - answered.At < AnsweredFirstFor && models.Contains(answered.Model)
+            ? [answered.Model, .. models.Where(model => model != answered.Model)]
+            : models;
 
         async Task<IReadOnlyList<string>> List() => GeminiClient.Candidates(await gemini.ListModelsAsync(key))
             .OrderBy(model => model.Contains("lite", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
@@ -502,6 +552,7 @@ public sealed partial class StudyGenerator(GeminiClient gemini, ApiKeyStore keys
     // A part of the sheet begun (« ## », not « ### »), at the start of the text or of a line (« \n » in the JSON).
     [GeneratedRegex(@"(?:^|\\n|"")##(?!#)")]
     private static partial Regex PartHeading();
+
 
     // A part of a finished sheet: its title, and its pages if given (« ## Ostéologie (p. 3-12) »).
     [GeneratedRegex(@"^##(?!#)\s*(?<title>.+?)\s*(?:\((?:p\.|pages?|diapos?\.?)\s*(?<pages>[^)]*)\))?\s*$", RegexOptions.Multiline)]

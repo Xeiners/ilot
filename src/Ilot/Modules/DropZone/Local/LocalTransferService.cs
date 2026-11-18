@@ -17,7 +17,7 @@ namespace Ilot.Modules.DropZone.Local;
 /// <summary>
 /// Files between the PC and a phone on the same Wi-Fi, straight through the router: a tiny HTTP server on this PC
 /// (port 80 when free, else 8080), reached at <c>http://192.168.x.x/&lt;key&gt;/</c>, or by its name on the network,
-/// <c>http://mynotch.local/</c> (see <see cref="MdnsResponder"/>). It serves a page with the files
+/// <c>http://ilot.local/</c> (see <see cref="MdnsResponder"/>). It serves a page with the files
 /// shared (<c>GET download/{i}</c>, folders zipped on the fly) and takes files the other way (<c>POST upload</c>,
 /// saved in Downloads). Nothing goes through the Internet.
 /// </summary>
@@ -37,7 +37,7 @@ public sealed class LocalTransferService : IDisposable
 {
     // 80 spares typing a port; Windows may hold it (IIS, http.sys…): then 8080, then any free one.
     private static readonly int[] Ports = [80, 8080, 0];
-    private const string NetworkName = "mynotch";
+    private const string NetworkName = "ilot";
     private const int MaxConnections = 64;
     private const int BufferSize = 256 * 1024;
     private const int MaxHeadSize = 16 * 1024;
@@ -49,6 +49,10 @@ public sealed class LocalTransferService : IDisposable
     private const byte TlsHandshake = 0x16;
 
     private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(10);
+
+    // A phone with the chat open (its page asking for news) keeps the sharing up, two hours at most without a word.
+    private static readonly TimeSpan Watched = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan MostWatchedIdle = TimeSpan.FromHours(2);
     private static readonly TimeSpan HeadTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ReportInterval = TimeSpan.FromMilliseconds(100);
@@ -78,6 +82,9 @@ public sealed class LocalTransferService : IDisposable
     private int _misses;
     private long _lockedUntil;
     private int _connections;
+    private int _watching;
+    private long _lastWatched;
+    private long _lastActive = Stopwatch.GetTimestamp();
 
     public LocalTransferService(DispatcherQueue dispatcher)
     {
@@ -87,9 +94,9 @@ public sealed class LocalTransferService : IDisposable
         _idle.IsRepeating = false;
         _idle.Tick += (_, _) =>
         {
-            if (_active.Count > 0)
+            if (_active.Count > 0 || IsWatched())
             {
-                _idle.Start(); // A slow transfer is still going: not idle.
+                _idle.Start(); // A slow transfer is still going, or a phone has the chat open: not idle.
             }
             else
             {
@@ -108,10 +115,10 @@ public sealed class LocalTransferService : IDisposable
     /// </summary>
     public string? TypedAddress => Address is { } address ? $"{address.Authority}/{_code}" : null;
 
-    /// <summary>The PC's name on the network, once claimed: "mynotch.local". Not every phone resolves it.</summary>
+    /// <summary>The PC's name on the network, once claimed: "ilot.local". Not every phone resolves it.</summary>
     public string? HostName { get; private set; }
 
-    /// <summary>The address to type with that name: "mynotch.local/4821" (or "mynotch.local:8080/4821").</summary>
+    /// <summary>The address to type with that name: "ilot.local/4821" (or "ilot.local:8080/4821").</summary>
     public string? NamedAddress => HostName is { } name && Address is { } address
         ? $"{name}{(address.IsDefaultPort ? "" : $":{address.Port}")}/{_code}"
         : null;
@@ -217,6 +224,7 @@ public sealed class LocalTransferService : IDisposable
             Link = isLink ? link : null,
         };
         PublishMessage(message);
+        Interlocked.Exchange(ref _lastActive, Stopwatch.GetTimestamp());
         _idle.Start();
         return message;
     }
@@ -504,7 +512,7 @@ public sealed class LocalTransferService : IDisposable
     }
 
     /// <summary>
-    /// Claims "mynotch.local" for this sharing (under a second: the network is asked first). The IP address works
+    /// Claims "ilot.local" for this sharing (under a second: the network is asked first). The IP address works
     /// meanwhile, and if mDNS cannot be used here.
     /// </summary>
     private async Task PublishAsync(IPAddress address, CancellationTokenSource session)
@@ -604,6 +612,7 @@ public sealed class LocalTransferService : IDisposable
 
                 if (!request.Path.EndsWith("/chat/events", StringComparison.Ordinal))
                 {
+                    Interlocked.Exchange(ref _lastActive, Stopwatch.GetTimestamp());
                     _dispatcher.TryEnqueue(() => _idle.Start());
                 }
 
@@ -885,6 +894,32 @@ public sealed class LocalTransferService : IDisposable
     /// up to <see cref="DecisionWait"/> for one to arrive.
     /// </summary>
     private async Task AnswerEventsAsync(string query, NetworkStream stream, CancellationToken session)
+    {
+        Interlocked.Increment(ref _watching);
+        try
+        {
+            await AnswerEventsCoreAsync(query, stream, session);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _watching);
+            Interlocked.Exchange(ref _lastWatched, Stopwatch.GetTimestamp());
+        }
+    }
+
+    /// <summary>
+    /// A phone has the chat open: its page is waiting for news, or asked a moment ago; and something was said or sent
+    /// within <see cref="MostWatchedIdle"/> (a page forgotten open does not keep the sharing up forever).
+    /// </summary>
+    private bool IsWatched()
+    {
+        long now = Stopwatch.GetTimestamp();
+        bool watching = Volatile.Read(ref _watching) > 0
+            || Stopwatch.GetElapsedTime(Interlocked.Read(ref _lastWatched), now) < Watched;
+        return watching && Stopwatch.GetElapsedTime(Interlocked.Read(ref _lastActive), now) < MostWatchedIdle;
+    }
+
+    private async Task AnswerEventsCoreAsync(string query, NetworkStream stream, CancellationToken session)
     {
         long since = 0;
         foreach (string pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))

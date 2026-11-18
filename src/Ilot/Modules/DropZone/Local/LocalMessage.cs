@@ -9,7 +9,7 @@ public enum LocalMessageKind
 }
 
 /// <summary>
-/// One item exchanged in the Wi-Fi local chat between the PC and another device on <c>mynotch.local</c>: a text
+/// One item exchanged in the Wi-Fi local chat between the PC and another device on <c>ilot.local</c>: a text
 /// snippet, a web link, a pasted or sent image, or a file (or folder).
 /// </summary>
 public sealed class LocalMessage

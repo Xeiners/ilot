@@ -12,8 +12,20 @@ namespace Ilot.Modules.Assistant;
 /// <summary>A Gemini model the key may use: its id ("gemini-…"), and its name as Google gives it.</summary>
 public sealed record GeminiModel(string Id, string Name);
 
-/// <summary>A turn of the conversation, as sent: from the user (with the images they joined, if any), or the model's answer.</summary>
-public sealed record GeminiTurn(bool FromUser, string Text, IReadOnlyList<GeminiImage>? Images = null);
+/// <summary>
+/// A turn of the conversation, as sent: from the user (with the images they joined, if any), or the model's answer.
+/// <paramref name="Parts"/>: the turn's parts as they are, instead (the model asking for its tools, and what they gave).
+/// </summary>
+public sealed record GeminiTurn(bool FromUser, string Text, IReadOnlyList<GeminiImage>? Images = null, JsonArray? Parts = null);
+
+/// <summary>A function Gemini asks to be called (see AssistantTools): its name, its arguments, and its id if Google gave one.</summary>
+public sealed record GeminiCall(string Name, JsonObject Args, string? Id);
+
+/// <summary>
+/// One streamed event of an answer: its text (the model's thoughts left out), the functions it asks for, and its parts
+/// as Google sent them, to be given back as they are with the next request (Gemini 3 checks the thought signatures in them).
+/// </summary>
+public sealed record GeminiChunk(string Text, IReadOnlyList<GeminiCall> Calls, IReadOnlyList<JsonObject> Parts);
 
 /// <summary>An image sent with a question: its type ("image/png"…) and its bytes.</summary>
 public sealed record GeminiImage(string MimeType, byte[] Data);
@@ -37,6 +49,12 @@ public sealed class GeminiException(string message, bool modelUnusable = false, 
 
     /// <summary>The quota spent is the day's (Google's « …PerDay… » one): the model will not answer again for hours.</summary>
     public bool Daily { get; init; }
+
+    /// <summary>
+    /// Nothing came from the model in time (before its first word, or between two pieces): Google, overloaded, often keeps
+    /// a request waiting rather than saying so. See StudyGenerator.
+    /// </summary>
+    public bool Silent { get; init; }
 }
 
 /// <summary>
@@ -150,13 +168,46 @@ public sealed class GeminiClient
     };
 
     /// <summary>
-    /// The answer to the conversation <paramref name="turns"/> (the last one the user's), written piece by piece as
-    /// Gemini streams it, the model thinking as little as it may (<paramref name="quick"/>, see <see cref="QuickThinking"/>).
-    /// Throws <see cref="GeminiException"/> with a message for the user.
+    /// The answer to the conversation <paramref name="turns"/> (the last one the user's), streamed event by event, the
+    /// model thinking as little as it may (<paramref name="quick"/>, see <see cref="QuickThinking"/>). With
+    /// <paramref name="tools"/> (function declarations, see AssistantTools), it may ask for them instead of answering
+    /// (<see cref="GeminiChunk.Calls"/>): the caller runs them and asks again, the call and what it gave added to the
+    /// turns; with <paramref name="answerOnly"/>, it is told to answer now, without them (the turns may hold its calls
+    /// already: the tools are still declared). Throws <see cref="GeminiException"/> with a message for the user.
     /// </summary>
-    public async IAsyncEnumerable<string> StreamAsync(
-        string key, string model, IReadOnlyList<GeminiTurn> turns, string instructions, bool quick = true,
+    public async IAsyncEnumerable<GeminiChunk> ChatAsync(
+        string key, string model, IReadOnlyList<GeminiTurn> turns, string instructions, bool quick, JsonArray? tools, bool answerOnly = false,
         [EnumeratorCancellation] CancellationToken cancellation = default)
+    {
+        var body = ChatRequest(model, turns, instructions, quick, tools, answerOnly);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"models/{Uri.EscapeDataString(model)}:streamGenerateContent?alt=sse")
+        {
+            Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Add("x-goog-api-key", key);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+        using var response = await Send(request, HttpCompletionOption.ResponseHeadersRead, cancellation);
+        using var stream = await response.Content.ReadAsStreamAsync(cancellation);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+
+        // One event per line: "data: {…}", the next piece of the answer.
+        while (await reader.ReadLineAsync(cancellation) is { } line)
+        {
+            if (!line.StartsWith("data:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var chunk = Chunk(line[5..].Trim());
+            if (chunk.Text.Length > 0 || chunk.Calls.Count > 0 || chunk.Parts.Count > 0)
+            {
+                yield return chunk;
+            }
+        }
+    }
+
+    /// <summary>The body of <see cref="ChatAsync"/>: the turns, the instructions, the thinking, the tools (copies: a node has one parent).</summary>
+    internal static JsonObject ChatRequest(string model, IReadOnlyList<GeminiTurn> turns, string instructions, bool quick, JsonArray? tools, bool answerOnly = false)
     {
         var contents = new JsonArray();
         foreach (var turn in turns)
@@ -178,30 +229,82 @@ public sealed class GeminiClient
             body["generationConfig"] = new JsonObject { ["thinkingConfig"] = thinking };
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"models/{Uri.EscapeDataString(model)}:streamGenerateContent?alt=sse")
+        if (tools is { Count: > 0 })
         {
-            Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
-        };
-        request.Headers.Add("x-goog-api-key", key);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
-        using var response = await Send(request, HttpCompletionOption.ResponseHeadersRead, cancellation);
-        using var stream = await response.Content.ReadAsStreamAsync(cancellation);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-
-        // One event per line: "data: {…}", the next piece of the answer.
-        while (await reader.ReadLineAsync(cancellation) is { } line)
-        {
-            if (!line.StartsWith("data:", StringComparison.Ordinal))
+            body["tools"] = new JsonArray(new JsonObject { ["functionDeclarations"] = tools.DeepClone() });
+            if (answerOnly)
             {
-                continue;
-            }
-
-            string piece = Piece(line[5..].Trim());
-            if (piece.Length > 0)
-            {
-                yield return piece;
+                body["toolConfig"] = new JsonObject { ["functionCallingConfig"] = new JsonObject { ["mode"] = "NONE" } };
             }
         }
+
+        return body;
+    }
+
+    /// <summary>
+    /// One streamed event of <see cref="ChatAsync"/>: its text, the functions asked for, its parts as sent (thoughts left
+    /// out); why it stopped, if it was refused.
+    /// </summary>
+    internal static GeminiChunk Chunk(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        if (root.TryGetProperty("error", out var error))
+        {
+            throw Refusal(error.TryGetProperty("code", out var code) && code.TryGetInt32(out int status) ? status : 0, Describe(error));
+        }
+
+        if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+        {
+            return root.TryGetProperty("promptFeedback", out var feedback) && feedback.TryGetProperty("blockReason", out _)
+                ? throw new GeminiException(Loc.T("Gemini a refusé de répondre à cette question."))
+                : new GeminiChunk("", [], []);
+        }
+
+        var candidate = candidates[0];
+        var text = new StringBuilder();
+        var calls = new List<GeminiCall>();
+        var raw = new List<JsonObject>();
+        if (candidate.TryGetProperty("content", out var content) && content.TryGetProperty("parts", out var parts))
+        {
+            foreach (var part in parts.EnumerateArray())
+            {
+                if (part.ValueKind != JsonValueKind.Object || (part.TryGetProperty("thought", out var thought) && thought.ValueKind == JsonValueKind.True))
+                {
+                    continue;
+                }
+
+                if (part.TryGetProperty("functionCall", out var call) && call.TryGetProperty("name", out var name) && name.GetString() is { Length: > 0 } called)
+                {
+                    var args = call.TryGetProperty("args", out var given) && given.ValueKind == JsonValueKind.Object
+                        ? JsonNode.Parse(given.GetRawText()) as JsonObject ?? []
+                        : [];
+                    calls.Add(new GeminiCall(called, args, call.TryGetProperty("id", out var id) ? id.GetString() : null));
+                }
+                else if (part.TryGetProperty("text", out var piece))
+                {
+                    text.Append(piece.GetString());
+                }
+
+                if (JsonNode.Parse(part.GetRawText()) is JsonObject kept)
+                {
+                    raw.Add(kept);
+                }
+            }
+        }
+
+        if (text.Length == 0 && calls.Count == 0 && candidate.TryGetProperty("finishReason", out var reason))
+        {
+            switch (reason.GetString())
+            {
+                case "SAFETY" or "PROHIBITED_CONTENT":
+                    throw new GeminiException(Loc.T("Gemini a refusé de répondre à cette question."));
+                case "MALFORMED_FUNCTION_CALL":
+                    throw new GeminiException(Loc.T("Notch n'a pas su se servir de ses outils : reformulez la demande."));
+            }
+        }
+
+        return new GeminiChunk(text.ToString(), calls, raw);
     }
 
     /// <summary>
@@ -330,9 +433,14 @@ public sealed class GeminiClient
         return uri;
     }
 
-    /// <summary>A turn's parts: its images (inline, base64), then its text, if any.</summary>
+    /// <summary>A turn's parts: as given (see <see cref="GeminiTurn.Parts"/>); else its images (inline, base64), then its text, if any.</summary>
     private static JsonArray Parts(GeminiTurn turn)
     {
+        if (turn.Parts is { } given)
+        {
+            return (JsonArray)given.DeepClone();
+        }
+
         var parts = new JsonArray();
         foreach (var image in turn.Images ?? [])
         {

@@ -215,6 +215,30 @@
         </Setter>
     </Style>
 
+    <!--  The same field on several lines (pasted text keeps all of its lines): it grows with its text, then scrolls.  -->
+    <Style
+        x:Key="NotchMultilineFieldTextBoxStyle"
+        BasedOn="{StaticResource NotchFieldTextBoxStyle}"
+        TargetType="TextBox">
+        <Setter Property="AcceptsReturn" Value="True" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <ScrollViewer
+                        x:Name="ContentElement"
+                        AutomationProperties.AccessibilityView="Raw"
+                        HorizontalScrollBarVisibility="Disabled"
+                        HorizontalScrollMode="Disabled"
+                        IsTabStop="False"
+                        VerticalScrollBarVisibility="Hidden"
+                        VerticalScrollMode="Enabled"
+                        ZoomMode="Disabled" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!--  Text button in the notch (confirmations): a pill that lightens under the pointer.  -->
     <Style x:Key="NotchPillButtonStyle" TargetType="controls:MotionButton">
         <Setter Property="Height" Value="28" />

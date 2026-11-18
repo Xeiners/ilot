@@ -20,6 +20,7 @@ using Ilot.Localization;
 using Ilot.Mascot;
 using Ilot.Modules.Media.Audio;
 using Ilot.Quick;
+using Ilot.Windowing;
 
 namespace Ilot.Notch;
 
@@ -282,7 +283,6 @@ public sealed partial class NotchView : UserControl
         Root.AddHandler(PointerWheelChangedEvent, new PointerEventHandler(OnPointerWheelChanged), handledEventsToo: false);
         Root.AddHandler(PointerPressedEvent, new PointerEventHandler(OnPressed), handledEventsToo: true);
         Root.Tapped += OnTapped;
-        Root.DoubleTapped += OnDoubleTapped;
 
         _hoverBounds = layout.BoundsOf(layout.Hidden);
     }
@@ -1621,6 +1621,16 @@ public sealed partial class NotchView : UserControl
             }
         }
 
+        // Left closed a while: what it used meanwhile is given back (see MemoryTrim); in use again, not now.
+        if (_controller.Phase == NotchPhase.Collapsed)
+        {
+            MemoryTrim.Schedule();
+        }
+        else
+        {
+            MemoryTrim.Cancel();
+        }
+
         var springs = _controller.Phase switch
         {
             NotchPhase.Expanded => Motion.Expand,
@@ -1999,23 +2009,12 @@ public sealed partial class NotchView : UserControl
         }
     }
 
-    private void OnDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
-    {
-        // Double-clicking "next" skips twice, it must not pin the notch; nor does a double click on the pill giving way.
-        if (IsInsideButton(e.OriginalSource) || _peeking)
-        {
-            return;
-        }
-
-        e.Handled = true;
-        _controller.OnDoubleTapped();
-    }
-
     private void OnMenuOpening(object sender, object e)
     {
         TourDid(TourWait.Menu);
         PinMenuItem.IsChecked = _controller.IsPinned;
         MinimizedMenuItem.IsChecked = _settings.Minimized;
+        TaskbarLyricsMenuItem.IsChecked = _settings.ShowLyrics && _settings.LyricsPlace == AppSettings.LyricsInTaskbar;
         _menuHold ??= _controller.Hold();
 
         // The menu needs focus for keyboard navigation and to light-dismiss when the user clicks elsewhere.
@@ -2031,6 +2030,17 @@ public sealed partial class NotchView : UserControl
     private void OnPinMenuItemClick(object sender, RoutedEventArgs e) => _controller.SetPinned(PinMenuItem.IsChecked);
 
     private void OnMinimizedMenuItemClick(object sender, RoutedEventArgs e) => _settings.Minimized = MinimizedMenuItem.IsChecked;
+
+    /// <summary>The sung line on the taskbar, or back on the closed notch. Checking it shows the lyrics if they were off.</summary>
+    private void OnTaskbarLyricsMenuItemClick(object sender, RoutedEventArgs e)
+    {
+        bool taskbar = TaskbarLyricsMenuItem.IsChecked;
+        _settings.LyricsPlace = taskbar ? AppSettings.LyricsInTaskbar : AppSettings.LyricsInNotch;
+        if (taskbar)
+        {
+            _settings.ShowLyrics = true;
+        }
+    }
 
     // ── Level ───────────────────────────────────────────────────────────────────────────────────────────────
 
