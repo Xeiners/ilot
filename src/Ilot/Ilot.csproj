@@ -16,6 +16,13 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <SatelliteResourceLanguages>en;fr</SatelliteResourceLanguages>
     <ApplicationIcon>Assets\Ilot.ico</ApplicationIcon>
+    <!--
+      No CET shadow stack (on by default since .NET 9): opening a file through the shell loads the Explorer's
+      context-menu extensions into this process, and those built on the .NET Framework 4 (File Converter, every
+      SharpShell one…) unwind their exceptions with SetThreadContext, which CET refuses: Windows then kills the
+      whole process (0xc0000409, FAST_FAIL_SET_CONTEXT_DENIED), even for an exception they catch themselves.
+    -->
+    <CETCompat>false</CETCompat>
   </PropertyGroup>
 
   <!-- WinUI apps are architecture specific: lets a plain `dotnet build` / `dotnet run` work without -p:Platform. -->

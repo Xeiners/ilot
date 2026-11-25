@@ -52,6 +52,14 @@ dotnet run --project src/Ilot      # lance (x64 par défaut)
 - **Erreurs** : toute exception non gérée est notée dans `%LOCALAPPDATA%\Ilot\errors.log` (256 Ko au plus).
   Si la notch ne peut pas se construire au démarrage, l'application se ferme au lieu de rester en processus
   fantôme sans fenêtre. **Premier réflexe quand « rien ne s'affiche » : lire ce fichier.**
+- **Plantage sans rien dans `errors.log`** (arrêt natif : le code .NET n'a pas la main) : l'Observateur d'événements
+  (Journaux Windows → Application, sources « Application Error » et « Windows Error Reporting ») donne le code et le
+  module, et Windows garde un dump dans `%LOCALAPPDATA%\CrashDumps\Ilot.exe.<pid>.dmp`. Un dump se lit avec ClrMD
+  (`Microsoft.Diagnostics.Runtime`, petit projet console à part) : enregistrement d'exception (flux 6 du minidump),
+  piles managées de chaque thread, liste des modules (une DLL tierce chargée dans Ilot s'y voit).
+- **Gel ou ralentissement** : pendant qu'il dure, Gestionnaire des tâches → clic droit sur Ilot → « Créer un fichier
+  de vidage mémoire » : la pile du thread d'interface (thread managé n° 1 ou 2, celui qui passe par
+  `Application.Start`) montre ce qui le bloque.
 - Vérifier qu'une fenêtre existe : `tasklist /FI "IMAGENAME eq Ilot.exe"`, puis, si besoin, énumérer les
   fenêtres du processus (une fenêtre « Ilot » visible doit exister).
 - **Tester qu'une compilation démarre sans fermer la notch du propriétaire** : `ILOT_INSTANCE=test` (variable
@@ -1695,6 +1703,14 @@ Ces fonctions compilent et ont été raisonnées, mais n'ont pas (ou peu) été 
   (`IShellFolder.GetUIObjectOf` plantait : violation d'accès). Un seul élément : le passer par `ref`.
 - **`IContextMenu.InvokeCommand` avec un verbe inconnu** tue le processus (échec rapide 0xC0000409 dans ntdll) :
   `ShellMenu.Run` cherche d'abord le verbe dans le menu (`GetCommandString`) et lance son numéro de commande.
+  (Cause probable, comprise plus tard : CET, ci-dessous. Le contournement reste bon.)
+- **CET (« shadow stack ») et extensions de l'Explorateur en .NET Framework** : depuis .NET 9, un exe .NET est marqué
+  `CET_COMPAT`. Ouvrir un fichier par le shell (`Process.Start` avec `UseShellExecute`, `ShellExecuteEx`, menus
+  contextuels) charge **dans Ilot** les extensions du clic droit ; celles en .NET Framework 4 (File Converter, toutes
+  les SharpShell) déroulent leurs exceptions par `SetThreadContext`, que CET refuse : Windows tue Ilot
+  (`0xc0000409` dans ntdll, paramètre 48 = `FAST_FAIL_SET_CONTEXT_DENIED`), sans rien dans `errors.log`. 4 plantages
+  sur 5 chez le propriétaire (1.0.3 et 1.1.0, en ouvrant depuis la recherche). Corrigé par `<CETCompat>false</CETCompat>`
+  dans `Ilot.csproj` : **ne pas le retirer**.
 
 ---
 
