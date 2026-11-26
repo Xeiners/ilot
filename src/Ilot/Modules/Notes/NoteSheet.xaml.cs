@@ -45,6 +45,7 @@ public sealed partial class NoteSheet : UserControl, IDetachableSheet
     private (int Start, int End)? _caret; // Where the caret goes once the text is in (a note detached, or brought back).
     private bool _showing;
     private bool _confirmingDelete;
+    private bool _formatQueued;
 
     /// <param name="detached">In a window of its own: « Rattacher » rather than « Détacher ».</param>
     internal NoteSheet(NotesViewModel viewModel, bool detached)
@@ -76,7 +77,7 @@ public sealed partial class NoteSheet : UserControl, IDetachableSheet
         TitleBox.KeyDown += OnTitleKeyDown;
         Editor.GotFocus += (_, _) => KeyboardWanted?.Invoke(this, Editor);
         Editor.Edited += OnEdited;
-        Editor.FormatChanged += (_, _) => ShowFormat();
+        Editor.FormatChanged += (_, _) => QueueFormat();
         Editor.Escaped += (_, _) => KeyboardDone?.Invoke(this, EventArgs.Empty);
         Editor.UseBoxLayer(BoxLayer);
         AddHandler(PointerPressedEvent, new PointerEventHandler(OnPointerPressedAnywhere), handledEventsToo: true);
@@ -402,6 +403,25 @@ public sealed partial class NoteSheet : UserControl, IDetachableSheet
     }
 
     // ── Toolbar ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The toolbar read again once the input waiting is handled: a selection dragged with the mouse changes at every
+    /// move, and reading the format of a long selection goes over all of it.
+    /// </summary>
+    private void QueueFormat()
+    {
+        if (_formatQueued)
+        {
+            return;
+        }
+
+        _formatQueued = true;
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            _formatQueued = false;
+            ShowFormat();
+        });
+    }
 
     /// <summary>The toolbar shows what is under the caret: its style, size, emphasis and list.</summary>
     private void ShowFormat()

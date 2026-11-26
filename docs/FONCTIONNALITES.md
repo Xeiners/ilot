@@ -257,6 +257,8 @@ Fonctionnalités :
   `winsqlite3.dll` de Windows : lue au premier affichage de l'onglet seulement, écrite peu après la dernière frappe
   hors du thread UI, et une dernière fois à la fermeture. Les notes écrites en Markdown avant sont converties en mise
   en forme à leur ouverture. Une note laissée vide n'est pas gardée.
+- **Notes longues** : la correction orthographique (soulignés rouges) s'arrête au-delà de 4 000 caractères et revient
+  sous 3 500 : celle de Windows revérifie tout le texte en boucle et figeait la notch sur une longue note.
 - **Recherche** (`Ctrl + Q` par défaut, partout, modifiable ou désactivable dans Paramètres → Recherche ; encore une fois pour refermer) : la notch s'ouvre directement en barre de
   recherche (660 × 60, sans onglets ; la loupe pivote et grandit en place) et prend le clavier. Dès la première
   lettre, une bulle de résultats tombe de la barre comme une goutte (le même effet que la feuille des notes), puis

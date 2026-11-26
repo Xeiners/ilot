@@ -77,6 +77,12 @@ public sealed partial class RichNoteEditor : RichEditBox
     private const float CheckIndent = 16;
     private const float ListIndent = 22;
 
+    // RichEdit's spell checker goes over the text again on a timer, on the UI thread, and squiggles each unknown word
+    // with a format change: a long note full of paths, commands and English froze the notch (seen in a dump). Off past
+    // this many characters, back on under the lower one (not on and off with each keystroke at the limit).
+    private const int SpellCheckLimit = 4000;
+    private const int SpellCheckBack = 3500;
+
     private static readonly Color BoxInk = Color.FromArgb(255, 0x8E, 0x8E, 0x93);
     private static readonly Color TickedInk = Color.FromArgb(255, 0xFF, 0xC8, 0x57); // The amber of the open card.
 
@@ -90,6 +96,7 @@ public sealed partial class RichNoteEditor : RichEditBox
     private BoxButton? _boxButton;
     private int _hotBox = -1;
     private (UIElement Origin, double Scale)? _clientSpace;
+    private bool _boxless; // No box in the text (until it changes): the mouse has nothing to look for.
 
     public RichNoteEditor()
     {
@@ -100,6 +107,7 @@ public sealed partial class RichNoteEditor : RichEditBox
 
         TextChanged += (_, _) =>
         {
+            _boxless = false;
             if (_loading == 0)
             {
                 Edited?.Invoke(this, EventArgs.Empty);
@@ -160,9 +168,12 @@ public sealed partial class RichNoteEditor : RichEditBox
     {
         HideBoxButton();
         _clientSpace = null;
+        _boxless = false;
         _loading++;
         try
         {
+            // Not checked as it goes in: a long note is spell checked (or not) once it is in (see FitSpellCheck).
+            IsSpellCheckEnabled = false;
             if (content.StartsWith(@"{\rtf", StringComparison.Ordinal))
             {
                 // Notes saved while the editor used the variable font take the plain one.
@@ -172,7 +183,7 @@ public sealed partial class RichNoteEditor : RichEditBox
 
                 // Square boxes from before turn round.
                 Document.GetText(TextGetOptions.None, out string text);
-                foreach (int start in ParagraphStarts(0, text.Length).Where(HasBox))
+                foreach (int start in BoxStarts(text))
                 {
                     StyleBox(start);
                 }
@@ -186,6 +197,7 @@ public sealed partial class RichNoteEditor : RichEditBox
 
             Document.GetText(TextGetOptions.None, out string loaded);
             Mend(0, loaded.Length);
+            FitSpellCheck(loaded.Length, loading: true);
             Document.ClearUndoRedoHistory();
             Document.Selection.SetRange(0, 0);
             ResetTyping();
@@ -660,6 +672,17 @@ public sealed partial class RichNoteEditor : RichEditBox
             return;
         }
 
+        // Selecting (a button down): no box to show under it; and no box at all in the text: nothing to look for.
+        if (e.Pointer.IsInContact || _boxless)
+        {
+            if (_hotBox >= 0)
+            {
+                HideBoxButton();
+            }
+
+            return;
+        }
+
         if (e.Pointer.PointerDeviceType == PointerDeviceType.Mouse && BoxUnder(e) is { } hit)
         {
             _hotBox = hit.Start;
@@ -729,9 +752,10 @@ public sealed partial class RichNoteEditor : RichEditBox
         }
 
         Document.GetText(TextGetOptions.None, out string all);
-        int start = ParagraphStarts(0, all.Length).FirstOrDefault(HasBox, -1);
+        int start = BoxStarts(all).FirstOrDefault(-1);
         if (start < 0)
         {
+            _boxless = true; // Read again once the text changes, not on every move of the mouse.
             return null;
         }
 
@@ -913,7 +937,36 @@ public sealed partial class RichNoteEditor : RichEditBox
             {
                 Edited?.Invoke(this, EventArgs.Empty);
             }
+
+            FitSpellCheck(paragraph.Range.StoryLength, loading: false);
         });
+    }
+
+    /// <summary>
+    /// The spell checker on for a short note, off for a long one (see <see cref="SpellCheckLimit"/>): from
+    /// <paramref name="length"/> characters on. On opening, the limit alone decides; while typing, it comes back only
+    /// once the note is well under it.
+    /// </summary>
+    private void FitSpellCheck(int length, bool loading)
+    {
+        int limit = loading || IsSpellCheckEnabled ? SpellCheckLimit : SpellCheckBack;
+        bool wanted = length <= limit;
+        if (IsSpellCheckEnabled != wanted)
+        {
+            IsSpellCheckEnabled = wanted;
+        }
+    }
+
+    /// <summary>Where each box is in <paramref name="all"/> (the text, read once): at a paragraph's start, before its space.</summary>
+    private static IEnumerable<int> BoxStarts(string all)
+    {
+        for (int at = 0; at + 1 < all.Length; at++)
+        {
+            if ((at == 0 || all[at - 1] is '\r' or '\n') && all[at] is Box or Ticked or OldBox or OldTicked && all[at + 1] is Gap or ' ')
+            {
+                yield return at;
+            }
+        }
     }
 
     /// <summary>

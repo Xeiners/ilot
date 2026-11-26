@@ -746,6 +746,17 @@ Les résultats qui arrivent encore pour la recherche d'avant sont ignorés tant 
 
 ### Notes — récent, à éprouver
 `Modules/Notes/`.
+- **Gel sur une longue note** (retour utilisateur, dump analysé, corrigé, jamais revu à l'écran) : note de 15 000
+  caractères (chemins, commandes, anglais), la notch figée. Pile du thread d'interface (symboles publics de
+  `WinUIEdit.dll`) : `CTxtEdit::OnTxTimer` → `CSpellChecker::Spellcheck` → `SpellCheckAndAutocorrect` → `CheckRange` →
+  `CSpellDocument::CreateNewSquiggle` → `SetCharFormat` : le correcteur de RichEdit, sur minuterie, aucun code d'Ilot.
+  `RichNoteEditor.FitSpellCheck` : coupé au-delà de `SpellCheckLimit` (4 000), revient sous `SpellCheckBack` (3 500) ;
+  coupé pendant `Load`, décidé une fois le texte dedans. Aussi, pour les lenteurs à la sélection : `OnPointerMoved`
+  (bouton sur la case sous la souris) ne cherche rien pendant une sélection (`IsInContact`) ni quand le texte n'a
+  aucune case (`_boxless`, remis à faux à chaque `TextChanged` : avant, `ClientSpace` relisait tout le texte
+  paragraphe par paragraphe à chaque mouvement de souris) ; les cases se trouvent dans le texte lu une fois
+  (`BoxStarts`) et non plus par un aller-retour COM par paragraphe ; la barre d'outils se relit une fois l'entrée
+  traitée (`NoteSheet.QueueFormat`, priorité basse) et plus à chaque pixel d'une sélection tirée.
 - **Texte jaune** (retour utilisateur, corrigé, jamais vu à l'écran) : RichEdit donne au texte nouveau le format du
   caractère d'avant ; le rond d'une case (police Segoe Fluent Icons, gris `BoxInk` ou ambre `TickedInk`) le passait au
   texte tapé ou collé à côté (curseur avant la case ou entre la case et son espace, sélection commençant par une case,
